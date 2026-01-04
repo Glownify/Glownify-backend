@@ -1,0 +1,286 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Salon App API",
+    "version": "1.0.0",
+    "description": "Complete API documentation for Salon app (Auth, User, Salon Admin, Super Admin)"
+  },
+  "tags": [
+    { "name": "Auth", "description": "Authentication and user management" },
+    { "name": "Users", "description": "User-facing endpoints for salons, reviews, and categories" },
+    { "name": "SalonAdmin", "description": "Salon owner endpoints for managing salon, specialists, services" },
+    { "name": "SuperAdmin", "description": "Super admin endpoints for managing users, salons, categories, offers" },
+    { "name": "SalesManagement", "description": "Endpoints for managing Sales Executives and Salesmen" }
+  ],
+  "paths": {
+    "/api/auth/signup": {
+      "post": {
+        "summary": "Register a new user, salon owner, or independent professional",
+        "tags": ["Auth"],
+        "requestBody": {
+          
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "password": { "type": "string" },
+                  "role": { "type": "string", "enum": ["user", "salon_owner", "independent_pro"] },
+                  "salonData": { "type": "object", "nullable": true },
+                  "independentData": { "type": "object", "nullable": true }
+                },
+                "required": ["name", "email", "phone", "password", "role"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registration successful" },
+          "400": { "description": "Validation error / user exists" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Login user and return JWT token",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "email": { "type": "string" }, "password": { "type": "string" } }, "required": ["email", "password"] }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful" },
+          "400": { "description": "Invalid email or password" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "summary": "Send OTP to reset password",
+        "tags": ["Auth"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "email": { "type": "string" } }, "required": ["email"] } } } },
+        "responses": { "200": { "description": "OTP sent" }, "404": { "description": "User not found" }, "500": { "description": "Server error" } }
+      }
+    },
+    "/api/auth/verify-otp": {
+      "post": {
+        "summary": "Verify OTP for password reset",
+        "tags": ["Auth"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "email": { "type": "string" }, "otp": { "type": "string" } }, "required": ["email","otp"] } } } },
+        "responses": { "200": { "description": "OTP verified" }, "400": { "description": "Invalid or expired OTP" }, "500": { "description": "Server error" } }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "summary": "Reset password using OTP",
+        "tags": ["Auth"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "email": { "type": "string" }, "newPassword": { "type": "string" } }, "required": ["email","newPassword"] } } } },
+        "responses": { "200": { "description": "Password reset successful" }, "400": { "description": "OTP expired or invalid" }, "500": { "description": "Server error" } }
+      }
+    },
+    "/api/user/get-featured-salons": { "get": { "summary": "Get top featured salons", "tags": ["Users"], "responses": { "200": { "description": "List of featured salons" }, "500": { "description": "Server error" } } } },
+    "/api/user/get-nearby-salons": {
+      "get": {
+        "summary": "Get nearby salons by coordinates",
+        "tags": ["Users"],
+        "parameters": [
+          { "name": "latitude", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "longitude", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "radiusInKm", "in": "query", "required": false, "schema": { "type": "number", "default": 5 } }
+        ],
+        "responses": { "200": { "description": "List of nearby salons" }, "400": { "description": "Invalid coordinates" }, "500": { "description": "Server error" } }
+      }
+    },
+    "/api/user/get-home-salons": { "get": { "summary": "Get salons for home page by category", "tags": ["Users"], "responses": { "200": { "description": "Grouped salons" }, "500": { "description": "Server error" } } } },
+    "/api/user/get-all-categories": { "get": { "summary": "Get all categories", "tags": ["Users"], "responses": { "200": { "description": "List of categories" }, "500": { "description": "Server error" } } } },
+    "/api/user/get-salon/{salonId}": {
+      "get": { "summary": "Get salon details by ID", "tags": ["Users"], "parameters":[{"name":"salonId","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200":{"description":"Salon details returned"},"404":{"description":"Salon not found"},"500":{"description":"Server error"}} }
+    },
+    "/api/user/give-review": {
+      "post": {
+        "summary": "Submit a review",
+        "tags": ["Users"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object","properties":{"salonId":{"type":"string"},"rating":{"type":"number"},"comment":{"type":"string"},"images":{"type":"array","items":{"type":"string"}}},"required":["salonId","rating","comment"]} } } },
+        "responses": { "201": { "description": "Review submitted" }, "400": { "description": "Validation error" }, "500": { "description": "Server error" } }
+      }
+    },
+
+    "/api/salonAdmin/getSaloonDetails": { "get": { "summary": "Get salon details for salon owner", "tags":["SalonAdmin"], "responses": { "200": { "description": "Salon details" }, "404": { "description": "Salon not found" }, "500": { "description": "Server error" } } } },
+    "/api/salonAdmin/add-specialist": { "post": { "summary":"Add specialist", "tags":["SalonAdmin"], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object","properties":{"name":{"type":"string"},"expertise":{"type":"string"},"experienceYears":{"type":"number"},"certifications":{"type":"array","items":{"type":"string"}},"contactNumber":{"type":"string"},"image":{"type":"string"},"availability":{"type":"array","items":{"type":"string"}}},"required":["name","expertise"] } } } }, "responses": { "201": { "description": "Specialist added" }, "404": { "description": "Salon not found" }, "500": { "description": "Server error" } } } },
+    "/api/salonAdmin/get-specialists": { "get": { "summary":"Get specialists by salon", "tags":["SalonAdmin"], "responses":{"200":{"description":"List of specialists"},"404":{"description":"Salon not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/update-specialist/{specialistId}": { "put": { "summary":"Update specialist", "tags":["SalonAdmin"], "parameters":[{"name":"specialistId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object" } } } }, "responses":{"200":{"description":"Specialist updated"},"404":{"description":"Specialist not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/delete-specialist/{specialistId}": { "delete": { "summary":"Delete specialist", "tags":["SalonAdmin"], "parameters":[{"name":"specialistId","in":"path","required":true,"schema":{"type":"string"}}], "responses":{"200":{"description":"Specialist deleted"},"404":{"description":"Specialist not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/add-location/{salonId}": { "patch": { "summary":"Add or update salon location", "tags":["SalonAdmin"], "parameters":[{"name":"salonId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object","properties":{"address":{"type":"string"},"city":{"type":"string"},"state":{"type":"string"},"zipCode":{"type":"string"},"country":{"type":"string"},"latitude":{"type":"number"},"longitude":{"type":"number"}},"required":["latitude","longitude"] } } } }, "responses":{"200":{"description":"Location saved"},"404":{"description":"Salon not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/subscription-status": { "get": { "summary":"Check subscription status", "tags":["SalonAdmin"], "responses":{"200":{"description":"Subscription info"},"404":{"description":"Salon not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/create-service-item": { "post": { "summary":"Create service", "tags":["SalonAdmin"], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object" } } } }, "responses":{"201":{"description":"Service created"},"404":{"description":"Salon not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/update-service-item/{serviceId}": { "put": { "summary":"Update service", "tags":["SalonAdmin"], "parameters":[{"name":"serviceId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object" } } } }, "responses":{"200":{"description":"Service updated"},"404":{"description":"Service not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/delete-service-item/{serviceId}": { "delete": { "summary":"Delete service", "tags":["SalonAdmin"], "parameters":[{"name":"serviceId","in":"path","required":true,"schema":{"type":"string"}}], "responses":{"200":{"description":"Service deleted"},"404":{"description":"Service not found"},"500":{"description":"Server error"}} } },
+    "/api/salonAdmin/get-service-items": { "get": { "summary":"Get services by salon", "tags":["SalonAdmin"], "responses":{"200":{"description":"List of services"},"404":{"description":"Salon not found"},"500":{"description":"Server error"}} } },
+
+    "/api/superAdmin/getAllSaloons": { "get": { "summary":"Get all salons (paginated)", "tags":["SuperAdmin"], "responses":{"200":{"description":"Salons list"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/create-category": { "post": { "summary":"Create category", "tags":["SuperAdmin"], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object","properties":{"name":{"type":"string"},"icon":{"type":"string"}},"required":["name"] } } } }, "responses":{"201":{"description":"Category created"},"400":{"description":"Category exists"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/getAllCategories": { "get": { "summary":"Get all categories", "tags":["SuperAdmin"], "responses":{"200":{"description":"Categories list"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/update-category/{categoryId}": { "patch": { "summary":"Update category", "tags":["SuperAdmin"], "parameters":[{"name":"categoryId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object" } } } }, "responses":{"200":{"description":"Category updated"},"404":{"description":"Category not found"},"400":{"description":"Duplicate name"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/verify-user/{userId}": { "patch": { "summary":"Verify user", "tags":["SuperAdmin"], "parameters":[{"name":"userId","in":"path","required":true,"schema":{"type":"string"}}], "responses":{"200":{"description":"User verified"},"404":{"description":"User not found"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/block-user/{userId}": { "patch": { "summary":"Block user", "tags":["SuperAdmin"], "parameters":[{"name":"userId","in":"path","required":true,"schema":{"type":"string"}}], "responses":{"200":{"description":"User blocked"},"404":{"description":"User not found"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/activate-user/{userId}": { "patch": { "summary":"Activate user", "tags":["SuperAdmin"], "parameters":[{"name":"userId","in":"path","required":true,"schema":{"type":"string"}}], "responses":{"200":{"description":"User activated"},"404":{"description":"User not found"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/create-offer": { "post": { "summary":"Create offer", "tags":["SuperAdmin"], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object" } } } }, "responses":{"201":{"description":"Offer created"},"400":{"description":"Offer exists"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/get-all-offers": { "get": { "summary":"Get all offers", "tags":["SuperAdmin"], "responses":{"200":{"description":"Offers list"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/update-offer/{offerId}": { "put": { "summary":"Update offer", "tags":["SuperAdmin"], "parameters":[{"name":"offerId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type":"object" } } } }, "responses":{"200":{"description":"Offer updated"},"404":{"description":"Offer not found"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/delete-offer/{offerId}": { "delete": { "summary":"Delete offer", "tags":["SuperAdmin"], "parameters":[{"name":"offerId","in":"path","required":true,"schema":{"type":"string"}}], "responses":{"200":{"description":"Offer deleted"},"404":{"description":"Offer not found"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/get-all-users": { "get": { "summary":"Get all users (paginated)", "tags":["SuperAdmin"], "responses":{"200":{"description":"Users list"},"500":{"description":"Server error"}} } },
+    "/api/superAdmin/get-unverified-salons": { "get": { "summary":"Get unverified salons", "tags":["SuperAdmin"], "responses":{"200":{"description":"List of unverified salons"},"500":{"description":"Server error"}} } },
+
+    "**/api/sales-executive/register**": {
+      "post": {
+        "summary": "Register a new Sales Executive (Super Admin only)",
+        "tags": ["SalesManagement"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "mobile": { "type": "string" },
+                  "name": { "type": "string" },
+                  "city": { "type": "string" },
+                  "commissionRate": { "type": "number", "nullable": true }
+                },
+                "required": ["email", "mobile", "name", "city"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Sales Executive registered successfully, returns temporary password" },
+          "400": { "description": "Validation error / User already exists" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden (Not Super Admin)" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "**/api/sales-executive/get-all-sales-executives**": {
+      "get": {
+        "summary": "Get all Sales Executives (Super Admin only)",
+        "tags": ["SalesManagement"],
+        "responses": {
+          "200": { "description": "List of Sales Executives" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden (Not Super Admin)" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+
+    "**/api/salesman/register-salesman**": {
+      "post": {
+        "summary": "Register a new Salesman",
+        "tags": ["SalesManagement"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "mobile": { "type": "string" },
+                  "name": { "type": "string" },
+                  "city": { "type": "string" },
+                  "commissionRate": { "type": "number" }
+                },
+                "required": ["email", "mobile", "name", "city", "commissionRate"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Salesman registered successfully, returns temporary password" },
+          "400": { "description": "Validation error / User already exists" },
+          "401": { "description": "Unauthorized" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "**/api/salesman/get-all-salesmen**": {
+      "get": {
+        "summary": "Get all Salesmen",
+        "tags": ["SalesManagement"],
+        "responses": {
+          "200": { "description": "List of Salesmen" },
+          "401": { "description": "Unauthorized" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+
+    "**/api/state-city/create-state**": {
+      "post": {
+        "summary": "Create a new State (Admin)",
+        "tags": ["SuperAdmin"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "country": { "type": "string" },
+                  "code": { "type": "string", "nullable": true }
+                },
+                "required": ["name", "country"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "State created successfully" },
+          "400": { "description": "Validation error / State already exists" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "**/api/state-city/create-city**": {
+      "post": {
+        "summary": "Create a new City (Admin)",
+        "tags": ["SuperAdmin"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "state": { "type": "string" },
+                  "country": { "type": "string" },
+                  "pincode": { "type": "string", "nullable": true }
+                },
+                "required": ["name", "state", "country"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "City created successfully" },
+          "400": { "description": "Validation error / City already exists in state" },
+          "500": { "description": "Server error" }
+        }
+      }
+    }
+  }
+}
