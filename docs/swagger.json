@@ -29,7 +29,7 @@
                   "email": { "type": "string" },
                   "phone": { "type": "string" },
                   "password": { "type": "string" },
-                  "role": { "type": "string", "enum": ["user", "salon_owner", "independent_pro"] },
+                  "role": { "type": "string", "enum": ["customer", "salon_owner", "independent_pro"] },
                   "salonData": { "type": "object", "nullable": true },
                   "independentData": { "type": "object", "nullable": true }
                 },
