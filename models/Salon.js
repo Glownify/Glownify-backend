@@ -74,7 +74,7 @@ const salonSchema = new mongoose.Schema(
     governmentId: {
       idType: {
         type: String,
-        enum: ["Aadhar", "PAN", "DL", "GST Certificate"],
+        enum: ["Aadhaar", "PAN", "DL", "GST Certificate"],
         required: true,
       },
       idNumber: { type: String, required: true },
