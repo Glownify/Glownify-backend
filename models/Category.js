@@ -14,6 +14,12 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// convert name to lowercase before saving
+categorySchema.pre("save", function (next) {
+  this.name = this.name.toLowerCase();
+  next();
+});
+
 // 🔥 This makes (name + gender) unique
 categorySchema.index({ name: 1, gender: 1 }, { unique: true });
 

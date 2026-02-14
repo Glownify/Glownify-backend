@@ -109,6 +109,7 @@ const bookingSchema = new mongoose.Schema(
         "completed",    // finished
         "cancelled",    // cancelled by user/provider
         "no_show",      // customer didn't arrive
+        "rescheduled",   // rescheduled to a new time accorrding to pdf
       ],
       default: "pending",
       index: true,
@@ -123,6 +124,14 @@ const bookingSchema = new mongoose.Schema(
     },
 
     notes: String,
+
+    // generate it when status becomes confirmed. It is used for referral tracking and other purposes as described in pdf
+    serviceCode: {
+      type: String,
+      unique: true,
+      sparse: true
+    }
+
   },
   {
     timestamps: true,
