@@ -25,6 +25,7 @@ const independentSchema = new mongoose.Schema(
 
     availability: [
       {
+        _id: false,
         day: { type: String, enum: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] },
         start: String,
         end: String

@@ -22,6 +22,7 @@ import stateCityRoutes from './routes/StateCityRoutes.js';
 import salesmanRoutes from './routes/salesmanRoutes.js';
 import salesExecutiveRoutes from './routes/salesExecutiveRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -56,6 +57,7 @@ app.use('/api/state-city', stateCityRoutes);
 app.use('/api/salesman', salesmanRoutes);
 app.use('/api/sales-executive', salesExecutiveRoutes);
 app.use('/api/booking', bookingRoutes);
+app.use('/api/category', categoryRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });

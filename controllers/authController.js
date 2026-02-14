@@ -2,11 +2,13 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import Salon from "../models/Salon.js";
 import IndependentProfessional from "../models/IndependentProfessional.js";
 import SalesExecutive from "../models/SalesExecutive.js";
 import Salesman from "../models/Salesman.js";
+import Category from "../models/Category.js";
 import { generateOTP } from "../utils/otp.js";
 import { sendEmail } from "../utils/email.js";
 import { hashString } from "../utils/hash.js";
@@ -62,6 +64,14 @@ export const signup = async (req, res) => {
         }
       }
 
+      if (salonData.shopType === "partnership") {
+        if (!Array.isArray(salonData.partners) || salonData.partners.length === 0) {
+          return res.status(400).json({
+            message: "At least one partner is required for partnership salon"
+          });
+        }
+      }
+
       const govId = salonData.governmentId;
       if (!govId?.idType || !govId?.idNumber || !govId?.idImageUrl) {
         return res.status(400).json({
@@ -72,16 +82,63 @@ export const signup = async (req, res) => {
 
     if (role === "independent_pro") {
       if (!independentData) {
-        return res.status(400).json({ message: "Independent profile data required" });
+        return res.status(400).json({
+          message: "Independent profile data required"
+        });
       }
 
-      const requiredFields = ["specializations", "experienceYears"];
-      for (const field of requiredFields) {
-        if (!independentData[field]) {
-          return res.status(400).json({ message: `Independent profile field '${field}' is required` });
-        }
+      const {
+        gender,
+        experienceYears,
+        specializations,
+        serviceTypes,
+        availability,
+        governmentId,
+        location
+      } = independentData;
+
+      if (!gender || experienceYears === undefined) {
+        return res.status(400).json({
+          message: "Gender and experienceYears are required"
+        });
+      }
+
+      if (!Array.isArray(specializations) || specializations.length === 0) {
+        return res.status(400).json({
+          message: "At least one specialization is required"
+        });
+      }
+
+      if (!Array.isArray(serviceTypes) || serviceTypes.length === 0) {
+        return res.status(400).json({
+          message: "At least one service type is required"
+        });
+      }
+
+      if (!Array.isArray(availability) || availability.length === 0) {
+        return res.status(400).json({
+          message: "Availability is required"
+        });
+      }
+
+      if (!governmentId?.idType || !governmentId?.idNumber || !governmentId?.idImageUrl) {
+        return res.status(400).json({
+          message: "Government ID is required"
+        });
+      }
+
+      if (
+        !location?.coordinates ||
+        !Array.isArray(location.coordinates) ||
+        location.coordinates.length !== 2
+      ) {
+        return res.status(400).json({
+          message: "Valid location coordinates required"
+        });
       }
     }
+
+
 
     // ============================
     // NOW CREATE USER (SAFE)
@@ -128,6 +185,347 @@ export const signup = async (req, res) => {
     return res.status(500).json({ message: "Registration failed", error: err.message });
   }
 };
+
+
+
+
+
+
+// Separate route for salon owner registration with detailed salon data
+export const signupSalonOwner = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      name,
+      email,
+      phone,
+      password,
+      whatsappNumber,
+      role,
+      salonData,
+    } = req.body;
+
+    if (!name || !email || !phone || !password || role !== "salon_owner") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Required fields missing" });
+    }
+
+    const {
+      shopType,
+      shopName,
+      salonCategory,
+      location,
+      city,
+      governmentId,
+      galleryImages,
+      partners,
+      openingHours,
+      offersHomeService
+    } = salonData;
+
+    if (
+      !shopType ||
+      !shopName ||
+      !salonCategory ||
+      !location?.coordinates ||
+      !location?.address ||
+      !city ||
+      !governmentId?.idType ||
+      !governmentId?.idNumber ||
+      !governmentId?.idImageUrl
+    ) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Salon required fields missing" });
+    }
+
+    // Duplicate check
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Phone already exists" });
+    }
+
+    // ===============================
+    // CREATE USER (INSIDE SESSION)
+    // ===============================
+    const user = await User.create(
+      [
+        {
+          name,
+          email,
+          phone,
+          password,
+          whatsappNumber,
+          role,
+        },
+      ],
+      { session }
+    );
+
+    // ===============================
+    // CREATE SALON (INSIDE SESSION)
+    // ===============================
+    const salon = await Salon.create(
+      [
+        {
+          owner: user[0]._id,
+          shopType,
+          partners: shopType === "partnership" ? partners : [],
+          shopName,
+          salonCategory,
+          contactNumber: phone,
+          whatsappNumber: whatsappNumber || "",
+          openingHours: openingHours || [],
+          offersHomeService: offersHomeService || false,
+          city,
+          location: {
+            type: "Point",
+            coordinates: location.coordinates,
+            address: location.address,
+            city: location.city,
+            state: location.state,
+            pincode: location.pincode,
+          },
+          galleryImages: galleryImages || [],
+          governmentId,
+        },
+      ],
+      { session }
+    );
+
+    // ===============================
+    // COMMIT TRANSACTION
+    // ===============================
+    await session.commitTransaction();
+    session.endSession();
+
+    const token = generateToken(user[0]);
+
+    res.status(201).json({
+      message: "Salon Owner registered successfully",
+      user: user[0],
+      salon: salon[0],
+      token,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error(error);
+    res.status(500).json({
+      message: "Registration failed",
+      error: error.message,
+    });
+  }
+};
+
+
+
+// Separate route for independent professional registration with detailed profile data
+export const signupIndependentPro = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { name, email, phone, password, role, independentData } = req.body;
+
+    // ===============================
+    // BASIC VALIDATION
+    // ===============================
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({ message: "Required fields missing" });
+    }
+
+    if (role !== "independent_pro") {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    if (!independentData) {
+      return res.status(400).json({ message: "Independent data required" });
+    }
+
+    // ===============================
+    // DUPLICATE CHECK
+    // ===============================
+    const [existingEmail, existingPhone] = await Promise.all([
+      User.findOne({ email }),
+      User.findOne({ phone }),
+    ]);
+
+    if (existingEmail)
+      return res.status(400).json({ message: "Email already exists" });
+
+    if (existingPhone)
+      return res.status(400).json({ message: "Phone already exists" });
+
+    const {
+      gender,
+      experienceYears,
+      specializations,
+      serviceTypes,
+      availability,
+      governmentId,
+      location,
+      profilePhoto,
+      workPhotos,
+    } = independentData;
+
+    // ===============================
+    // REQUIRED FIELD VALIDATION
+    // ===============================
+    if (!gender || experienceYears === undefined) {
+      return res.status(400).json({
+        message: "Gender and experienceYears required",
+      });
+    }
+
+    if (!Array.isArray(specializations) || specializations.length === 0) {
+      return res.status(400).json({
+        message: "At least one specialization required",
+      });
+    }
+
+    if (!Array.isArray(serviceTypes) || serviceTypes.length === 0) {
+      return res.status(400).json({
+        message: "At least one service type required",
+      });
+    }
+
+    if (!Array.isArray(availability) || availability.length === 0) {
+      return res.status(400).json({
+        message: "Availability required",
+      });
+    }
+
+    if (
+      !governmentId?.idType ||
+      !governmentId?.idNumber ||
+      !governmentId?.idImageUrl
+    ) {
+      return res.status(400).json({
+        message: "Government ID required",
+      });
+    }
+
+    if (
+      !location?.coordinates ||
+      !Array.isArray(location.coordinates) ||
+      location.coordinates.length !== 2
+    ) {
+      return res.status(400).json({
+        message: "Valid location coordinates required",
+      });
+    }
+
+    // ===============================
+    // CATEGORY OBJECT ID VALIDATION
+    // ===============================
+    const validObjectIds = specializations.every((id) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
+
+    if (!validObjectIds) {
+      return res.status(400).json({
+        message: "Invalid category ID format",
+      });
+    }
+
+    const categories = await Category.find({
+      _id: { $in: specializations },
+    });
+
+    if (categories.length !== specializations.length) {
+      return res.status(400).json({
+        message: "One or more categories not found",
+      });
+    }
+
+    
+    // ===============================
+    // CREATE USER
+    // ===============================
+    const [user] = await User.create(
+      [
+        {
+          name,
+          email,
+          phone,
+          password,
+          role,
+        },
+      ],
+      { session }
+    );
+
+    // ===============================
+    // CREATE INDEPENDENT PROFILE
+    // ===============================
+    const [independentProfile] = await IndependentProfessional.create(
+      [
+        {
+          user: user._id,
+          gender,
+          experienceYears,
+          specializations,
+          serviceTypes,
+          profilePhoto,
+          workPhotos: workPhotos || [],
+          availability,
+          governmentId,
+          location: {
+            type: "Point",
+            coordinates: location.coordinates,
+            address: location.address,
+            city: location.city,
+            state: location.state,
+            pincode: location.pincode,
+            radiusInKm: location.radiusInKm || 10,
+          },
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    const token = generateToken(user, independentProfile);
+
+    return res.status(201).json({
+      message: "Independent Professional registered successfully",
+      user,
+      independentProfile,
+      token,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+
+    return res.status(500).json({
+      message: "Registration failed",
+      error: error.message,
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+
+
+
+
+
+
 
 export const login = async (req, res) => {
   try {

@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
 
-const partnerSchema = new mongoose.Schema({
-  name: String,
-  contactNumber: String,
-  whatsappNumber: String
-});
+const partnerSchema = new mongoose.Schema(
+  {
+    name: String,
+    contactNumber: String,
+    whatsappNumber: String
+  },
+  {_id: false }
+);
 
 const salonSchema = new mongoose.Schema(
   {
@@ -34,7 +37,8 @@ const salonSchema = new mongoose.Schema(
         day: { type: String, enum: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] },
         start: String,
         end: String,
-      }
+        _id: false
+      },
     ],
 
     registrationNumber: String,
@@ -46,12 +50,12 @@ const salonSchema = new mongoose.Schema(
     //     required: true,
     //     index: true // Index for fast filtering by state
     // },
-    city: { // City is kept as the primary reference for location
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "City",
-      required: true,
-      index: true // Index for fast filtering by city
-    },
+    // city: { // City is kept as the primary reference for location
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "City",
+    //   required: true,
+    //   index: true // Index for fast filtering by city
+    // },
 
     // GeoJSON
     location: {
@@ -74,7 +78,7 @@ const salonSchema = new mongoose.Schema(
     governmentId: {
       idType: {
         type: String,
-        enum: ["Aadhar", "PAN", "DL", "GST Certificate"],
+        enum: ["Aadhaar", "PAN", "DL", "GST Certificate"],
         required: true,
       },
       idNumber: { type: String, required: true },
@@ -97,15 +101,21 @@ const salonSchema = new mongoose.Schema(
     },
     onboardedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     referredBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Salesman",
-  default: null,
-  index: true
-}
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Salesman",
+      default: null,
+      index: true
+    }
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
+    toJSON: { 
+      virtuals: true,
+      transform: (doc, ret) => {
+        delete ret.id;
+        delete ret.__v;
+      }
+    },
     toObject: { virtuals: true },
   }
 );
