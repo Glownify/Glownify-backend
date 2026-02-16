@@ -44,7 +44,8 @@ connectDB().then(() => {
 
 // Default Route
 app.get('/', (req, res) => {
-  res.send('Hello From Server');
+  // res.send('Hello From Server');
+  res.send('Welcome to the Glownify API Server.');
 });
 
 // API Routes
