@@ -60,5 +60,6 @@ app.use('/api/booking', bookingRoutes);
 app.use('/api/category', categoryRoutes);
 
 app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  // res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ message: 'The requested route does not exist.' });
 });
