@@ -1,9 +1,15 @@
 import Salon from "../models/Salon.js";
 import SubscriptionPlan from "../models/SubscriptionPlan.js";
+import IndependentProfessional from "../models/IndependentProfessional.js";
 
 export const createSubscriptionPlan = async (req, res) => {
   try {
     const { name, price, durationInDays, features } = req.body;
+
+    if (!name || !price || !durationInDays || !features) {
+      return res.status(400).json({ message: "All required fields are mandatory" });
+    }
+
     const newPlan = new SubscriptionPlan({
       name,
       price,
@@ -13,7 +19,12 @@ export const createSubscriptionPlan = async (req, res) => {
 
     await newPlan.save();
 
-    res.status(201).json({ message: "Subscription plan created successfully!", plan: newPlan });
+    res.status(201).json(
+      { 
+        success: true,
+        message: "Subscription plan created successfully!", 
+        plan: newPlan 
+    });
   } catch (error) {
     console.error("Error creating subscription plan:", error);
     res.status(500).json({ message: "Server error while creating subscription plan." });
@@ -22,7 +33,8 @@ export const createSubscriptionPlan = async (req, res) => {
 
 export const assignSubscription = async (req, res) => {
   try {
-    const { subscriberId, planId } = req.body; 
+    // const { subscriberId, planId } = req.body;
+    const { subscriberId, planId, subscriberType } = req.body;
 
     const plan = await SubscriptionPlan.findById(planId);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -129,7 +141,7 @@ export const getSubscriptionPlans = async (req, res) => {
       console.log("No subscription plans found.");
       return res.status(404).json({ message: "No subscription plans available." });
     }
-    console.log("Fetched subscription plans:", plans);
+    // console.log("Fetched subscription plans:", plans);
     res.status(200).json({ plans });
   } catch (error) {
     console.error("Error fetching subscription plans:", error);

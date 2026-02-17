@@ -7,7 +7,7 @@ import IndependentProfessional from "../models/IndependentProfessional.js";
 
 
 export const getSuperAdminDashboardStats = async (req, res) => {
-    console.log("Fetching Super Admin Dashboard Stats");
+    // console.log("Fetching Super Admin Dashboard Stats");
   try {
     // ============================
     // 1️⃣ PLATFORM TOTAL COUNTS
@@ -67,6 +67,8 @@ export const getSuperAdminDashboardStats = async (req, res) => {
     // 3️⃣ FINAL RESPONSE
     // ============================
     res.status(200).json({
+      success: true,
+      message: "Super Admin Dashboard Stats fetched successfully",
       summary: {
         totalSalons,
         totalUsers,
