@@ -213,6 +213,7 @@ export const getAllSalons = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      message: "Salons fetched successfully",
       page,
       limit,
       totalPages: Math.ceil(totalCount / limit),
