@@ -29,13 +29,14 @@ export const getAllUsers = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      message: "Users fetched successfully",
       users,
       page,
       totalPages: Math.ceil(totalCount / limit),
       count: totalCount,
     });
   } catch (error) {
-    console.error("Error fetching users:", error);
+    // console.error("Error fetching users:", error);
     res.status(500).json({
       success: false,
       message: "Server error while fetching users",
@@ -54,15 +55,15 @@ export const verifyUser = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.status(200).json({ message: "User verified By Admin", user });
+    res.status(200).json({ success: true, message: "User verified By Admin", user });
   } catch (error) {
     console.error(error);
     res
       .status(500)
-      .json({ message: "Internal server error", error: error.message });
+      .json({ success: false, message: "Internal server error", error: error.message });
   }
 };
 
@@ -75,14 +76,14 @@ export const blockUser = async (req, res) => {
       { new: true }
     );
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({success: false, message: "User not found" });
     }
-    res.status(200).json({ message: "User blocked successfully", user });
+    res.status(200).json({success: true, message: "User blocked successfully", user });
   } catch (error) {
     console.error(error);
     res
       .status(500)
-      .json({ message: "Internal server error", error: error.message });
+      .json({ success: false, message: "Internal server error", error: error.message });
   }
 };
 
@@ -95,14 +96,14 @@ export const activateUser = async (req, res) => {
       { new: true }
     );
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({success: false, message: "User not found" });
     }
-    res.status(200).json({ message: "User activated successfully", user });
+    res.status(200).json({success: true, message: "User activated successfully", user });
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res
       .status(500)
-      .json({ message: "Internal server error", error: error.message });
+      .json({ success: false, message: "Internal server error", error: error.message });
   }
 };
 
@@ -114,7 +115,7 @@ export const uploadDocument = async (req, res) => {
 
     // Validate input
     if (!idType || !idNumber || !idImageUrl) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
     // Update user's governmentId
@@ -131,16 +132,17 @@ export const uploadDocument = async (req, res) => {
     );
 
     if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     res.status(200).json({
+      success: true,
       message: "Document uploaded successfully",
       user: updatedUser,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 };
 
@@ -151,7 +153,7 @@ export const giveReview = async (req, res) => {
 
     // Validate input
     if (!salonId || !rating || !comment) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
     // Create a new review
@@ -166,12 +168,13 @@ export const giveReview = async (req, res) => {
     await newReview.save();
 
     res.status(201).json({
+      success: true,
       message: "Review submitted successfully",
       review: newReview,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    // console.error(err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 };
 

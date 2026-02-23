@@ -16,6 +16,7 @@ export const createOffer = async (req, res) => {
     // Validate required fields
     if (
       !title ||
+      !description ||
       !discountType ||
       !discountValue ||
       !minBookingAmount ||
@@ -25,7 +26,7 @@ export const createOffer = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ message: "All required fields must be provided." });
+        .json({ success: false, message: "All required fields must be provided." });
     }
 
     // Check for duplicate offer code
@@ -33,7 +34,7 @@ export const createOffer = async (req, res) => {
     if (existingOffer) {
       return res
         .status(400)
-        .json({ message: "Offer code already exists. Use a unique code." });
+        .json({ success: false, message: "Offer code already exists. Use a unique code." });
     }
 
     // Create new offer
@@ -51,21 +52,22 @@ export const createOffer = async (req, res) => {
     await newOffer.save();
 
     res.status(201).json({
+      success: true,
       message: "Offer created successfully!",
       offer: newOffer,
     });
   } catch (error) {
     console.error("Error creating offer:", error);
-    res.status(500).json({ message: "Server error while creating offer." });
+    res.status(500).json({ success: false, message: "Server error while creating offer." });
   }
 };
 
 export const getAllOffers = async (req, res) => {
   try {
     const offers = await Offer.find().lean();
-    res.status(200).json({ success: true, offers });
+    res.status(200).json({ success: true, message: "Offers fetched successfully", offers });
   } catch (error) {
-    console.error("Error fetching offers:", error);
+    // console.error("Error fetching offers:", error);
     res.status(500).json({
       success: false,
       message: "Server error while fetching offers",
@@ -79,11 +81,11 @@ export const deleteOffer = async (req, res) => {
     const { offerId } = req.params;
     const offer = await Offer.findByIdAndDelete(offerId);
     if (!offer) {
-      return res.status(404).json({ message: "Offer not found" });
+      return res.status(404).json({ success: false, message: "Offer not found" });
     }
-    res.status(200).json({ message: "Offer deleted successfully", offer });
+    res.status(200).json({ success: true, message: "Offer deleted successfully", offer });
   } catch (error) {
-    console.error("Error deleting offer:", error);
+    // console.error("Error deleting offer:", error);
     res.status(500).json({
       success: false,
       message: "Server error while deleting offer",
@@ -109,7 +111,7 @@ export const updateOffer = async (req, res) => {
 
     const offer = await Offer.findById(offerId);
     if (!offer) {
-      return res.status(404).json({ message: "Offer not found." });
+      return res.status(404).json({ success: false, message: "Offer not found." });
     }
 
     // Update fields if provided
@@ -124,9 +126,9 @@ export const updateOffer = async (req, res) => {
 
     await offer.save();
 
-    res.json({ message: "Offer updated successfully!", offer });
+    res.status(200).json({ success: true, message: "Offer updated successfully!", offer });
   } catch (error) {
     console.error("Error updating offer:", error);
-    res.status(500).json({ message: "Server error while updating offer." });
+    res.status(500).json({ success: false, message: "Server error while updating offer." });
   }
 };

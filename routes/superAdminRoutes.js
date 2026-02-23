@@ -64,6 +64,7 @@ router.get("/offers", authenticate, getAllOffers);
 router.get('/subscription-plans', authenticate, isSuperAdmin, getSubscriptionPlans);
 router.post('/subscription-plans', authenticate, isSuperAdmin, createSubscriptionPlan);
 
+// Dashboard Stats
 router.get("/dashboard-stats", authenticate, isSuperAdmin, getSuperAdminDashboardStats);
 
 export default router;

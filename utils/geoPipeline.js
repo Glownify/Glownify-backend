@@ -1,5 +1,6 @@
 export const geoNearStage = ({ lat, lng, radius = 5 }) => {
-  if (!lat || !lng) return [];
+  // if (!lat || !lng) return [];
+  if (lat == null || lng == null) return [];
 
   return [
     {

@@ -105,7 +105,8 @@ const salonSchema = new mongoose.Schema(
       ref: "Salesman",
       default: null,
       index: true
-    }
+    },
+    verifiedByAdmin: { type: Boolean, default: false },
   },
   {
     timestamps: true,
