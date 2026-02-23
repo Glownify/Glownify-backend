@@ -108,3 +108,23 @@ export const checkSubscription = (req, res, next) => {
     res.status(401).json({ message: "Subscription check failed" });
   }
 };
+
+
+export const isSalesExecutive = (req, res, next) => {
+  try {
+    if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+  
+    if (req.user.role !== "sales_executive") {
+      return res.status(403).json({ 
+        error: "Forbidden - Sales Executive access required",
+        message: "Sales Executive access required"
+      });
+    }
+    next();
+  } catch (error) {
+    console.error('Sales Executive check error:', error.message);
+    res.status(500).json({ error: "Authorization check failed" });
+  }
+};

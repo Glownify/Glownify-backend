@@ -49,6 +49,8 @@ export const registerSalesExecutive = async (req, res) => {
     const { password: _, ...userData } = newUser._doc;
 
     res.status(201).json({
+      success: true,
+      message: "Sales executive registered successfully.",
       user: userData,
       salesExecutive: {
         ...newSalesExecutive._doc,
@@ -65,14 +67,18 @@ export const registerSalesExecutive = async (req, res) => {
 
 // Get all sales executives
 export const getAllSalesExecutives = async (req, res) => {
-    console.log("Fetching all sales executives...");
+    // console.log("Fetching all sales executives...");
     try {
         const salesExecutives = await SalesExecutive.find()
             .populate('user', 'name email phone')
             .sort({ createdAt: -1 });
-        res.status(200).json({ salesExecutives });
+        res.status(200).json({ 
+          success: true,
+          message: "Sales executives fetched successfully",
+          salesExecutives 
+        });
     } catch (error) {
-        res.status(500).json({ message: "Failed to fetch sales executives.", error: error.message });
+        res.status(500).json({ success: false, message: "Failed to fetch sales executives.", error: error.message });
     }
 };
 
@@ -100,10 +106,15 @@ export const getSalesExecutivesByCity = async (req, res) => {
         message: "No sales executives found for this city."
       });
     }
-    res.status(200).json({ salesExecutives });
+    res.status(200).json({ 
+      success: true,
+      message: `Sales executives fetched by ${salesExecutives[0]?.city?.name || "Unknown"} city successfully`,
+      salesExecutives 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({
+      success: false,
       message: "Failed to fetch sales executives by city.",
       error: error.message
     });
@@ -112,6 +123,8 @@ export const getSalesExecutivesByCity = async (req, res) => {
 
 export const getSalesExecutiveDashboardStats = async (req, res) => {
   try {
+    console.log(req.user.roleId);
+    
     const salesExecutiveId = req.user?.roleId;
 
     if (!salesExecutiveId || !mongoose.Types.ObjectId.isValid(salesExecutiveId)) {
@@ -167,6 +180,8 @@ export const getSalesExecutiveDashboardStats = async (req, res) => {
 
     // 6️⃣ Response
     res.status(200).json({
+      success: true,
+      message: "Dashboard stats fetched successfully",
       summary: {
         totalSalesman: salesman.length,
         totalSalons,
@@ -179,6 +194,7 @@ export const getSalesExecutiveDashboardStats = async (req, res) => {
   } catch (error) {
     console.error("Sales Executive Dashboard Error:", error);
     res.status(500).json({
+      success: false,
       message: "Failed to fetch dashboard stats",
       error: error.message
     });

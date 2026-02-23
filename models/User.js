@@ -67,6 +67,8 @@ const userSchema = new mongoose.Schema(
 
     lastLoginAt: Date,
 
+    isVerified: { type: Boolean, default: false },
+
     /* ---------------- PASSWORD RESET ---------------- */
     resetPasswordOTP: String,
     resetPasswordExpire: Date,

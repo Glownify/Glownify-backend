@@ -2,10 +2,19 @@ import Salon from "../models/Salon.js";
 import ServiceItem from "../models/ServiceItem.js";
 import Specialist from "../models/Specialist.js";
 import {geoNearStage} from "../utils/geoPipeline.js";
+import mongoose from "mongoose";
 
 export const getFeaturedSalons = async (req, res) => {
   try {
     const { lat, lng, radius } = req.query;
+
+    if (lat && isNaN(lat)) {
+      return res.status(400).json({ message: "Invalid latitude" });
+    }
+
+    if (lng && isNaN(lng)) {
+      return res.status(400).json({ message: "Invalid longitude" });
+    }
 
     const pipeline = [
       ...geoNearStage({
@@ -14,19 +23,44 @@ export const getFeaturedSalons = async (req, res) => {
         radius,
       }),
 
+      // Only verified salons
+      // {
+      //   $match: { verifiedByAdmin: true },
+      // },
+
       {
         $lookup: {
           from: "reviews",
-          localField: "_id",
-          foreignField: "salon",
-          as: "reviews",
-        },
+          let: { salonId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$salon", "$$salonId"] }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 }
+              }
+            }
+          ],
+          as: "reviewStats"
+        }
       },
       {
         $addFields: {
-          averageRating: { $avg: "$reviews.rating" },
-          totalReviews: { $size: "$reviews" },
-        },
+          averageRating: {
+            $ifNull: [{ $arrayElemAt: ["$reviewStats.averageRating", 0] }, 0]
+          },
+          totalReviews: {
+            $ifNull: [{ $arrayElemAt: ["$reviewStats.totalReviews", 0] }, 0]
+          }
+        }
+      },
+      {
+        $project: { reviewStats: 0 }
       },
       { $sort: { averageRating: -1 } },
       { $limit: 10 },
@@ -34,7 +68,10 @@ export const getFeaturedSalons = async (req, res) => {
 
     const salons = await Salon.aggregate(pipeline);
 
-    res.json({ success: true, salons });
+    res.json({
+      success: true,
+      message: "Featured salons retrieved successfully",
+      salons });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -106,6 +143,10 @@ export const getAllSalonsByCategory = async (req, res) => {
   try {
     const { category, lat, lng, radius = 50000 } = req.query;
     console.log(req.query);
+
+    if (category && !["men","women","unisex"].includes(category)) {
+      return res.status(400).json({ message: "Invalid category" })
+    }
 
     if (!lat || !lng) {
       return res.status(400).json({
@@ -394,6 +435,10 @@ export const getSalonById = async (req, res) => {
   try {
     const { salonId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(salonId)) {
+      return res.status(400).json({ message: "Invalid salon ID" });
+    }
+
     // Fetch the salon
     const salon = await Salon.findById(salonId)
       .populate("specialistsData")
@@ -471,11 +516,11 @@ export const getUnverifiedSalons = async (req, res) => {
     const salons = await Salon.find({ verifiedByAdmin: false })
       .populate("owner", "name email phone")
       .lean();
-    res.status(200).json({ success: true, salons });
+    res.status(200).json({ success: true, message: "Unverified salons fetched successfully", data: salons });
     console.log("Unverified salons fetched:", salons);
   } catch (error) {
     console.error("Error fetching unverified salons:", error);
-    res.status(500).json({ message: "Server error while fetching unverified salons", error: error.message });
+    res.status(500).json({ success: false, message: "Server error while fetching unverified salons", error: error.message });
   }
 };
 
@@ -492,7 +537,7 @@ export const verifySalonByAdmin = async (req, res) => {
       return res.status(404).json({ message: "Salon not found" });
     }
 
-    res.status(200).json({ success: true, salon });
+    res.status(200).json({ success: true, message: "Salon verified successfully", salon });
   } catch (error) {
     console.error("Error verifying salon:", error);
     res.status(500).json({ message: "Server error while verifying salon", error: error.message });

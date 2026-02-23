@@ -4,10 +4,12 @@ import { getAllCategories } from '../controllers/categoryController.js';
 import { getFeaturedSalons, getNearbySalons, getHomeSalonsByCategory, getSalonById, getAllSalonsByCategory } from '../controllers/salonController.js';
 import { getHomeIndependentPros } from "../controllers/independentProController.js";
 import { getServiceItemsByCategory } from '../controllers/serviceItemController.js';
+import { authenticate } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
-router.post('/give-review', giveReview);
+// router.post('/give-review', giveReview);
+router.post('/give-review', authenticate, giveReview);
 router.get('/get-featured-salons', getFeaturedSalons);
 router.get('/get-nearby-salons', getNearbySalons);
 router.get('/get-all-categories', getAllCategories);
