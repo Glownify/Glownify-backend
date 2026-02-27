@@ -10,16 +10,20 @@ const router = Router();
 
 // NEW ENDPOINT FOR NEARBY SALONS WITH PAGINATION
 router.get('/get-nearby-salons', getNearbySalons);
+// NEW ENDPOINT FOR HOME INDEPENDENT PROS
+router.get("/get-home-independentpros", getHomeIndependentPros);
+// NEW ENDPOINT TO GET CATEGORY
+router.get('/get-all-categories', getAllCategories);
+
 
 // router.post('/give-review', giveReview);
 router.post('/give-review', authenticate, giveReview);
 router.get('/get-featured-salons', getFeaturedSalons);
 
-router.get('/get-all-categories', getAllCategories);
+// router.get('/get-all-categories', getAllCategories);
 router.get('/get-all-salons-by-category', getAllSalonsByCategory);
 
 router.get('/get-home-salons', getHomeSalonsByCategory);
-router.get("/get-home-independentpros", getHomeIndependentPros);
 router.get('/get-salon/:salonId', getSalonById);
 router.get('/get-serviceItems-by-category/:salonId/:categoryId', getServiceItemsByCategory);
 

@@ -235,23 +235,85 @@ export const editCategory = async (req, res) => {
 };
 
 
+// export const getAllCategories = async (req, res) => {
+//   try {
+//     const { gender } = req.query;
+
+//     let filter = {};
+
+//     // If gender is provided, apply filter
+//     if (gender === "women" || gender === "men") {
+//       filter.gender = gender;
+//     }
+
+//     const categories = await Category.find(filter).lean();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Categories fetched successfully",
+//       genderApplied: gender || "none",
+//       count: categories.length,
+//       categories,
+//     });
+
+//   } catch (error) {
+//     console.error("Error fetching categories:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error while fetching categories",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+// New Updated getAllCategories with pagination and better error handling
 export const getAllCategories = async (req, res) => {
   try {
-    const { gender } = req.query;
+    const {
+      gender,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-    let filter = {};
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+    const skip = (pageNumber - 1) * pageSize;
 
-    // If gender is provided, apply filter
-    if (gender === "women" || gender === "men") {
+    let filter = { active: true };
+
+    // ✅ Gender Filter
+    const allowedGenders = ["men", "women", "unisex"];
+
+    if (gender) {
+      if (!allowedGenders.includes(gender)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid gender. Allowed: men | women | unisex",
+        });
+      }
+
       filter.gender = gender;
     }
 
-    const categories = await Category.find(filter).lean();
+    // ✅ Total count for pagination
+    const total = await Category.countDocuments(filter);
+
+    const categories = await Category.find(filter)
+      .select("-createdAt -updatedAt -__v")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize)
+      .lean();
 
     return res.status(200).json({
       success: true,
       message: "Categories fetched successfully",
       genderApplied: gender || "none",
+      page: pageNumber,
+      limit: pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
       count: categories.length,
       categories,
     });
@@ -261,12 +323,9 @@ export const getAllCategories = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while fetching categories",
-      error: error.message,
     });
   }
 };
-
-
 
 
 
