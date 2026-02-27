@@ -9,74 +9,95 @@ import crypto from "crypto";
 // Secure random password (8 chars)
 const generatePassword = () => crypto.randomBytes(4).toString('hex');
 
-// Register new Salesman
+// Register new Salesman (only SalesExecutive can do this)
 export const registerSalesman = async (req, res) => {
-    console.log(req.body);
-    try {
-        const executiveId = req.user.roleId;
-        if(!executiveId) {
-            return res.status(400).json({ message: "Invalid Sales Executive." });
-        }
-        
-        const { email, mobile, name, city, commissionRate } = req.body;
+  const session = await mongoose.startSession();
 
-        if (!mobile || !name || !email || !city || !commissionRate) {
-            return res.status(400).json({ message: "Mobile, name, email, city, and commission rate are required." });
-        }
+  try {
+    session.startTransaction();
 
-        // Check if user exists
-        const query = [{ phone: mobile }];
-        if (email) query.push({ email: email.toLowerCase() });
-        const existingUser = await User.findOne({ $or: query });
-        if (existingUser) {
-            return res.status(400).json({ message: "User already exists." });
-        }
-
-        // Generate password & hash
-        const password = generatePassword();
-
-        // Create User
-        const newUser = new User({
-            name,
-            phone: mobile,
-            email: email?.toLowerCase(),
-            password,
-            role: 'salesman',
-        });
-        await newUser.save();
-
-        // Generate unique referral ID
-        const referralId = await Salesman.generateUniqueReferralId();
-
-        // Create Salesman
-        const newSalesman = new Salesman({
-            user: newUser._id,
-            commissionRate,
-            referralId,
-            city,
-            salesExecutive: executiveId,
-        });
-        await newSalesman.save();
-
-        // Clean user data (exclude password)
-        const { password: _, ...userData } = newUser._doc;
-
-        // Return response with plain password once
-        res.status(201).json({
-            user: userData,
-            salesman: {
-                ...newSalesman._doc,
-                password, // plain password only for registration
-            }
-        });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Failed to register salesman.", error: error.message });
+    const executiveId = req.user.roleId;
+    if (!executiveId) {
+      return res.status(400).json({ message: "Invalid Sales Executive." });
     }
+
+    const { email, mobile, name, city, commissionRate } = req.body;
+
+    if (!mobile || !name || !email || !city || !commissionRate) {
+      return res.status(400).json({ message: "Mobile, name, email, city, and commission rate are required." });
+    }
+
+    // Check existing user
+    const existingUser = await User.findOne({
+      $or: [
+        { phone: mobile },
+        { email: email.toLowerCase() },
+      ],
+    }).session(session);
+
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists." });
+    }
+
+    const password = generatePassword();
+
+    // Create User
+    const [newUser] = await User.create(
+      [
+        {
+          name,
+          phone: mobile,
+          email: email.toLowerCase(),
+          password,
+          role: "salesman",
+        },
+      ],
+      { session }
+    );
+
+    const referralId = await Salesman.generateUniqueReferralId();
+
+    // Create Salesman
+    const [newSalesman] = await Salesman.create(
+      [
+        {
+          user: newUser._id,
+          commissionRate,
+          referralId,
+          city,
+          salesExecutive: executiveId,
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    const { password: _, ...userData } = newUser._doc;
+
+    return res.status(201).json({
+      user: userData,
+      salesman: {
+        ...newSalesman._doc,
+        password,
+      },
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+
+    return res.status(400).json({
+      message: error.message || "Failed to register salesman.",
+    });
+
+  } finally {
+    session.endSession(); // ✅ always runs
+  }
 };
 
-// Get all salesmen
+
+
+// Get all salesmen (only for super_admin and sales_executive)
 export const getAllSalesman = async (req, res) => {
     console.log("Fetching all salesmen...");
     try {
@@ -88,6 +109,7 @@ export const getAllSalesman = async (req, res) => {
         res.status(500).json({ message: "Failed to fetch salesmen.", error: error.message });
     }
 };
+
 
 export const getDashboardStats = async (req, res) => {
   try {

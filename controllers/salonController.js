@@ -273,59 +273,220 @@ export const getAllSalons = async (req, res) => {
 };
 
 
+// export const getNearbySalons = async (req, res) => {
+//   try {
+//     const { latitude, longitude, radiusInKm = 50000 } = req.query;
+
+//     if (!latitude || !longitude) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Latitude and longitude are required",
+//       });
+//     }
+
+//     const lat = parseFloat(latitude);
+//     const lng = parseFloat(longitude);
+//     const radius = parseFloat(radiusInKm);
+
+//     if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid latitude, longitude, or radius",
+//       });
+//     }
+
+//     const salons = await Salon.aggregate([
+//       ...geoNearStage({ lat, lng, radius }),
+//       {
+//         $project: {
+//           _id: 1,
+//           shopName: 1,
+//           galleryImages: 1,
+//           contactNumber: 1,
+//           whatsappNumber: 1,
+//           location: 1,
+//           distanceInMeters: 1,
+//         },
+//       },
+
+//       { $sort: { distanceInMeters: 1 } }, // nearest first
+//     ]);
+
+//     res.status(200).json({
+//       success: true,
+//       count: salons.length,
+//       salons: salons.map((salon) => ({
+//         ...salon,
+//         distanceInKm: Number((salon.distanceInMeters / 1000).toFixed(2)),
+//       })),
+//     });
+//   } catch (err) {
+//     console.error("Error fetching nearby salons:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: err.message,
+//     });
+//   }
+// };
+
+
+// get nearby salons final code with all features and optimizations.
 export const getNearbySalons = async (req, res) => {
   try {
-    const { latitude, longitude, radiusInKm = 50000 } = req.query;
+    const {
+      lat,
+      lng,
+      radius = 10,
+      category,
+      page = 1,
+      limit = 5,
+    } = req.query;
 
-    if (!latitude || !longitude) {
+    if (!lat || !lng || !category) {
       return res.status(400).json({
         success: false,
-        message: "Latitude and longitude are required",
+        message: "Latitude, longitude and category are required",
       });
     }
 
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-    const radius = parseFloat(radiusInKm);
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+    const skip = (pageNumber - 1) * pageSize;
 
-    if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+    // ✅ Category logic
+    let categoryFilter = [];
+    if (category === "men") categoryFilter = ["men", "unisex"];
+    else if (category === "women") categoryFilter = ["women", "unisex"];
+    else if (category === "unisex") categoryFilter = ["unisex"];
+    else {
       return res.status(400).json({
         success: false,
-        message: "Invalid latitude, longitude, or radius",
+        message: "Invalid category",
       });
     }
 
-    const salons = await Salon.aggregate([
+    const pipeline = [
+      // ✅ GEO STAGE (nearest first automatically)
       ...geoNearStage({ lat, lng, radius }),
+
+      // ✅ Category Filter
+      {
+        $match: {
+          salonCategory: { $in: categoryFilter },
+        },
+      },
+
+      // ✅ Top 3 Popular Services
+      {
+        $lookup: {
+          from: "serviceitems",
+          let: { salonId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$providerId", "$$salonId"] },
+                    { $eq: ["$providerType", "Salon"] },
+                    { $eq: ["$status", "active"] }
+                  ]
+                }
+              }
+            },
+            { $sort: { bookingsCount: -1 } },
+            { $limit: 3 },
+            {
+              $project: {
+                _id: 0,
+                name: 1,
+                price: 1
+              }
+            }
+          ],
+          as: "popularServices"
+        }
+      },
+
+      // ✅ Reviews Lookup (UPDATED FOR targetType + targetId)
+      {
+        $lookup: {
+          from: "reviews",
+          let: { salonId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$targetId", "$$salonId"] },
+                    { $eq: ["$targetType", "Salon"] }
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                avgRating: { $avg: "$rating" },
+                totalRatings: { $sum: 1 }
+              }
+            }
+          ],
+          as: "ratingData"
+        }
+      },
+
+      // ✅ Add Rating Fields
+      {
+        $addFields: {
+          avgRating: {
+            $ifNull: [{ $arrayElemAt: ["$ratingData.avgRating", 0] }, 0]
+          },
+          totalRatings: {
+            $ifNull: [{ $arrayElemAt: ["$ratingData.totalRatings", 0] }, 0]
+          }
+        }
+      },
+
+      // ✅ Sort by Nearest Only
+      { $sort: { distanceInMeters: 1 } },
+
+      // ✅ Pagination
+      { $skip: skip },
+      { $limit: pageSize },
+
+      // ✅ Final Projection (Offer Removed)
       {
         $project: {
           _id: 1,
           shopName: 1,
-          galleryImages: 1,
-          contactNumber: 1,
-          whatsappNumber: 1,
-          location: 1,
+          salonCategory: 1,
+          image: { $arrayElemAt: ["$galleryImages", 0] },
           distanceInMeters: 1,
-        },
-      },
+          avgRating: { $round: ["$avgRating", 1] },
+          totalRatings: 1,
+          popularServices: 1,
+          offersHomeService: 1
+        }
+      }
+    ];
 
-      { $sort: { distanceInMeters: 1 } }, // nearest first
-    ]);
+    const salons = await Salon.aggregate(pipeline);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      message: "Nearby salons fetched successfully",
+      page: pageNumber,
+      limit: pageSize,
       count: salons.length,
-      salons: salons.map((salon) => ({
-        ...salon,
-        distanceInKm: Number((salon.distanceInMeters / 1000).toFixed(2)),
-      })),
+      data: salons,
     });
-  } catch (err) {
-    console.error("Error fetching nearby salons:", err);
-    res.status(500).json({
+
+  } catch (error) {
+    console.error("Error fetching nearby salons:", error);
+    return res.status(500).json({
       success: false,
-      message: "Server error",
-      error: err.message,
+      message: "Failed to fetch nearby salons",
     });
   }
 };

@@ -8,10 +8,13 @@ import { authenticate } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
+// NEW ENDPOINT FOR NEARBY SALONS WITH PAGINATION
+router.get('/get-nearby-salons', getNearbySalons);
+
 // router.post('/give-review', giveReview);
 router.post('/give-review', authenticate, giveReview);
 router.get('/get-featured-salons', getFeaturedSalons);
-router.get('/get-nearby-salons', getNearbySalons);
+
 router.get('/get-all-categories', getAllCategories);
 router.get('/get-all-salons-by-category', getAllSalonsByCategory);
 

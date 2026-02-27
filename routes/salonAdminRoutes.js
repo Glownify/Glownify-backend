@@ -28,6 +28,8 @@ import {
 } from "../middlewares/authMiddleware.js";
 import { toggleOffersHomeService } from "../controllers/authController.js";
 
+import { createOffer, deleteOffer, updateOffer, getAllOffers } from "../controllers/offerController.js";
+
 const router = Router();
 
 router.get("/getSalonDetails", authenticate, getSalonDetails);
@@ -63,5 +65,14 @@ router.post("/create-add-on", authenticate, isSalonOwner, createAddOn);
 router.put("/update-add-on/:addOnId", authenticate, isSalonOwner, updateAddOn);
 router.get("/get-add-ons", authenticate, isSalonOwner, getAddOns);
 router.delete("/delete-add-on/:addOnId", authenticate, isSalonOwner, deleteAddOn);
+
+
+// offer management
+router.post("/offers", authenticate, isSalonOwner, createOffer);
+router.delete("/offers/:offerId", authenticate, isSalonOwner, deleteOffer);
+router.put("/offers/:offerId", authenticate, isSalonOwner, updateOffer);
+router.get("/offers", authenticate, isSalonOwner, getAllOffers);
+
+
 
 export default router;
