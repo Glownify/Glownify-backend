@@ -53,10 +53,10 @@ router.patch(
 );
 
 // offer management
-router.post("/offers", authenticate, isSuperAdmin, createOffer);
-router.delete("/offers/:offerId", authenticate, isSuperAdmin, deleteOffer);
-router.put("/offers/:offerId", authenticate, isSuperAdmin, updateOffer);
-router.get("/offers", authenticate, getAllOffers);
+// router.post("/offers", authenticate, isSuperAdmin, createOffer);
+// router.delete("/offers/:offerId", authenticate, isSuperAdmin, deleteOffer);
+// router.put("/offers/:offerId", authenticate, isSuperAdmin, updateOffer);
+// router.get("/offers", authenticate, getAllOffers);
 
 
 

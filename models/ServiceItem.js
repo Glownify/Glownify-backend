@@ -24,6 +24,7 @@ const serviceItemSchema = new mongoose.Schema({
   },
   providerId: { type: mongoose.Schema.Types.ObjectId, refPath: "providerType", required: true },
   addOns: [{ type: mongoose.Schema.Types.ObjectId, ref: "AddOn" }],
+  bookingsCount: { type: Number, default: 0 }, // For analytics and sorting
 }, { timestamps: true });
 
 // virtual populate for addOns
@@ -32,6 +33,8 @@ serviceItemSchema.virtual("addOnDetails", {
   localField: "_id",
   foreignField: "serviceId",
 });
+
+serviceItemSchema.index({ providerId: 1, providerType: 1, status: 1 });
 
 serviceItemSchema.set("toObject", { virtuals: true });
 serviceItemSchema.set("toJSON", { virtuals: true });

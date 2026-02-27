@@ -5,10 +5,16 @@ const independentSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    gender: { type: String, enum: ["male", "female", "other"], required: true },
     experienceYears: Number,
     serviceTypes: [String],
     specializations: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }],
+
+    // 
+    serviceCategory: {
+      type: String,
+      enum: ["men", "women", "unisex"],
+      required: true,
+    },
 
     profilePhoto: String,
     workPhotos: [String],
@@ -31,6 +37,12 @@ const independentSchema = new mongoose.Schema(
         end: String
       }
     ],
+
+    availabilityStatus: {
+      type: String,
+      enum: ["available", "busy", "offline"],
+      default: "available"
+    },
 
     governmentId: {
       idType: { type: String, enum: ["Aadhaar", "PAN", "DL"] },
