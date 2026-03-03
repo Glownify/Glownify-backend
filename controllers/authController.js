@@ -8,7 +8,7 @@ import Salon from "../models/Salon.js";
 import IndependentProfessional from "../models/IndependentProfessional.js";
 import SalesExecutive from "../models/SalesExecutive.js";
 import Salesman from "../models/Salesman.js";
-import Category from "../models/Category.js";
+import ServiceCategory from "../models/ServiceCategory.js";
 import { generateOTP } from "../utils/otp.js";
 import { sendEmail } from "../utils/email.js";
 import { hashString } from "../utils/hash.js";
@@ -442,7 +442,7 @@ export const signupIndependentPro = async (req, res) => {
       });
     }
 
-    const categories = await Category.find({
+    const categories = await ServiceCategory.find({
       _id: { $in: specializations },
     });
 

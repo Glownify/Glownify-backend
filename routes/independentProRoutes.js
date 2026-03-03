@@ -3,7 +3,9 @@ import { getHomeIndependentPros } from "../controllers/independentProController.
 
 const router = Router();
 
-router.get("/get-home-independentpros", getHomeIndependentPros);
+// Route to get home independent pros with pagination
+router.get("/home", getHomeIndependentPros);
+
 
 export default router;
 

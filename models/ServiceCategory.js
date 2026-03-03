@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const categorySchema = new mongoose.Schema(
+const serviceCategorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     gender: {
@@ -15,12 +15,12 @@ const categorySchema = new mongoose.Schema(
 );
 
 // convert name to lowercase before saving
-categorySchema.pre("save", function (next) {
-  this.name = this.name.toLowerCase();
+serviceCategorySchema.pre("save", function (next) {
+  this.name = this.name.trim().toLowerCase();
   next();
 });
 
 // 🔥 This makes (name + gender) unique
-categorySchema.index({ name: 1, gender: 1 }, { unique: true });
+serviceCategorySchema.index({ name: 1, gender: 1 }, { unique: true });
 
-export default mongoose.model("Category", categorySchema);
+export default mongoose.model("ServiceCategory", serviceCategorySchema); 

@@ -129,7 +129,7 @@ export const getHomeIndependentPros = async (req, res) => {
 
       {
         $match: {
-          serviceCategory: { $in: categoryFilter },
+          targetGender: { $in: categoryFilter },
         },
       },
 
@@ -191,7 +191,7 @@ export const getHomeIndependentPros = async (req, res) => {
         $project: {
           profilePhoto: 1,
           experienceYears: 1,
-          serviceCategory: 1,
+          targetGender: 1,
           availabilityStatus: 1,
           distanceInMeters: 1,
           avgRating: { $round: ["$avgRating", 1] },

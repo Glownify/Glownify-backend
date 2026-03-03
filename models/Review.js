@@ -47,6 +47,6 @@ const reviewSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-reviewSchema.index({ targetId: 1, targetType: 1 });
+reviewSchema.index({ targetType: 1, targetId: 1, createdAt: -1 });
 
 export default mongoose.model("Review", reviewSchema);

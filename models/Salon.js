@@ -22,7 +22,7 @@ const salonSchema = new mongoose.Schema(
     contactNumber: String,
     whatsappNumber: String,
 
-    salonCategory: {
+    targetGender: {
       type: String,
       enum: ["men", "women", "unisex"],
       required: true,

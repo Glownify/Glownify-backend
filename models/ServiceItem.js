@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 
 const serviceItemSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true, index: true },
+  serviceCategory: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceCategory", required: true, index: true },
   price: { type: Number, required: true },
   durationMins: { type: Number, default: 30 },
   discountPercent: { type: Number, default: 0 },

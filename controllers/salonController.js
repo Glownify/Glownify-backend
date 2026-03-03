@@ -1,337 +1,10 @@
 import Salon from "../models/Salon.js";
 import ServiceItem from "../models/ServiceItem.js";
-import Specialist from "../models/Specialist.js";
 import {geoNearStage} from "../utils/geoPipeline.js";
 import mongoose from "mongoose";
 
-export const getFeaturedSalons = async (req, res) => {
-  try {
-    const { lat, lng, radius } = req.query;
 
-    if (lat && isNaN(lat)) {
-      return res.status(400).json({ message: "Invalid latitude" });
-    }
-
-    if (lng && isNaN(lng)) {
-      return res.status(400).json({ message: "Invalid longitude" });
-    }
-
-    const pipeline = [
-      ...geoNearStage({
-        lat,
-        lng,
-        radius,
-      }),
-
-      // Only verified salons
-      // {
-      //   $match: { verifiedByAdmin: true },
-      // },
-
-      {
-        $lookup: {
-          from: "reviews",
-          let: { salonId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$salon", "$$salonId"] }
-              }
-            },
-            {
-              $group: {
-                _id: null,
-                averageRating: { $avg: "$rating" },
-                totalReviews: { $sum: 1 }
-              }
-            }
-          ],
-          as: "reviewStats"
-        }
-      },
-      {
-        $addFields: {
-          averageRating: {
-            $ifNull: [{ $arrayElemAt: ["$reviewStats.averageRating", 0] }, 0]
-          },
-          totalReviews: {
-            $ifNull: [{ $arrayElemAt: ["$reviewStats.totalReviews", 0] }, 0]
-          }
-        }
-      },
-      {
-        $project: { reviewStats: 0 }
-      },
-      { $sort: { averageRating: -1 } },
-      { $limit: 10 },
-    ];
-
-    const salons = await Salon.aggregate(pipeline);
-
-    res.json({
-      success: true,
-      message: "Featured salons retrieved successfully",
-      salons });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// export const getFeaturedSalons = async (req, res) => {
-//   try {
-//     const featuredSalons = await Salon.aggregate([
-//       //  Only verified salons
-//       // {
-//       //   $match: { verifiedByAdmin: true },
-//       // },
-//       // 1️⃣ Join salon with reviews
-//       {
-//         $lookup: {
-//           from: "reviews",
-//           localField: "_id",
-//           foreignField: "salon",
-//           as: "reviews",
-//         },
-//       },
-//       //  Join service items
-//       {
-//         $lookup: {
-//           from: "serviceItem",
-//           localField: "_id",
-//           foreignField: "salon",
-//           as: "serviceItemData",
-//         },
-//       },
-//             // Join specialists
-//       {
-//         $lookup: {
-//           from: "specialists",
-//           localField: "_id",
-//           foreignField: "salon",
-//           as: "specialistsData",
-//         },
-//       },
-//       // 2️⃣ Compute average rating
-//       {
-//         $addFields: {
-//           averageRating: { $avg: "$reviews.rating" },
-//           totalReviews: { $size: "$reviews" },
-//         },
-//       },
-//       // 3️⃣ Sort by highest rating first
-//       {
-//         $sort: { averageRating: -1 },
-//       },
-//       // 4️⃣ Optionally limit results (e.g., top 10)
-//       {
-//         $limit: 10,
-//       },
-//     ]);
-
-//     res.status(200).json({
-//       message: "Featured salons retrieved successfully",
-//       salons: featuredSalons,
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
-
-export const getAllSalonsByCategory = async (req, res) => {
-  console.log("sdgds");
-  try {
-    const { category, lat, lng, radius = 50000 } = req.query;
-    console.log(req.query);
-
-    if (category && !["men","women","unisex"].includes(category)) {
-      return res.status(400).json({ message: "Invalid category" })
-    }
-
-    if (!lat || !lng) {
-      return res.status(400).json({
-        success: false,
-        message: "lat and lng are required",
-      });
-    }
-
-    const pipeline = [
-      // 1️⃣ GEO SEARCH (must be first)
-      ...geoNearStage({ lat, lng, radius }),
-
-      // 2️⃣ CATEGORY FILTER (optional)
-      ...(category
-        ? [
-            {
-              $match: {
-                salonCategory: category, // men / women / unisex
-              },
-            },
-          ]
-        : []),
-
-      // 3️⃣ SORT BY NEAREST
-      { $sort: { distanceInMeters: 1 } },
-
-      // 4️⃣ POPULATE OWNER
-      {
-        $lookup: {
-          from: "users",
-          localField: "owner",
-          foreignField: "_id",
-          as: "owner",
-        },
-      },
-      {
-        $unwind: {
-          path: "$owner",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-
-      // 5️⃣ PROJECT REQUIRED FIELDS
-      {
-        $project: {
-          shopName: 1,
-          salonCategory: 1,
-          location: 1,
-          distanceInMeters: 1,
-          owner: {
-            name: 1,
-            phone: 1,
-            email: 1,
-            whatsapp: 1,
-            role: 1,
-            govermentId: 1,
-          },
-        },
-      },
-    ];
-
-    const salons = await Salon.aggregate(pipeline);
-
-    // ✅ NO SALON FOUND
-    if (salons.length === 0) {
-      return res.status(200).json({
-        success: true,
-        count: 0,
-        message: "No salons found for this category near you",
-        salons: [],
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      count: salons.length,
-      salons,
-    });
-    console.log("Salons fetched:", salons);
-  } catch (error) {
-    console.error("Error fetching salons:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching salons",
-      error: error.message,
-    });
-  }
-};
-
-export const getAllSalons = async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;       // which page
-    const limit = parseInt(req.query.limit) || 20;    // how many per page
-    const skip = (page - 1) * limit;
-
-    const salons = await Salon.find()
-      .skip(skip)
-      .limit(limit)
-      .populate("owner", "name phone email whatsapp role govermentId")
-      // .populate("specialistsData")
-      // .populate("serviceItemData")
-      // .populate("reviewData");
-
-    const totalCount = await Salon.countDocuments();
-
-    res.status(200).json({
-      success: true,
-      message: "Salons fetched successfully",
-      page,
-      limit,
-      totalPages: Math.ceil(totalCount / limit),
-      count: salons.length,
-      totalCount,
-      salons,
-    });
-  } catch (error) {
-    console.error("Error fetching salons:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching salons",
-      error: error.message,
-    });
-  }
-};
-
-
-// export const getNearbySalons = async (req, res) => {
-//   try {
-//     const { latitude, longitude, radiusInKm = 50000 } = req.query;
-
-//     if (!latitude || !longitude) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Latitude and longitude are required",
-//       });
-//     }
-
-//     const lat = parseFloat(latitude);
-//     const lng = parseFloat(longitude);
-//     const radius = parseFloat(radiusInKm);
-
-//     if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid latitude, longitude, or radius",
-//       });
-//     }
-
-//     const salons = await Salon.aggregate([
-//       ...geoNearStage({ lat, lng, radius }),
-//       {
-//         $project: {
-//           _id: 1,
-//           shopName: 1,
-//           galleryImages: 1,
-//           contactNumber: 1,
-//           whatsappNumber: 1,
-//           location: 1,
-//           distanceInMeters: 1,
-//         },
-//       },
-
-//       { $sort: { distanceInMeters: 1 } }, // nearest first
-//     ]);
-
-//     res.status(200).json({
-//       success: true,
-//       count: salons.length,
-//       salons: salons.map((salon) => ({
-//         ...salon,
-//         distanceInKm: Number((salon.distanceInMeters / 1000).toFixed(2)),
-//       })),
-//     });
-//   } catch (err) {
-//     console.error("Error fetching nearby salons:", err);
-//     res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//       error: err.message,
-//     });
-//   }
-// };
-
-
-// get nearby salons final code with all features and optimizations.
+// get nearby salons final code with all features and optimizations. 
 export const getNearbySalons = async (req, res) => {
   try {
     const {
@@ -373,7 +46,7 @@ export const getNearbySalons = async (req, res) => {
       // ✅ Category Filter
       {
         $match: {
-          salonCategory: { $in: categoryFilter },
+          targetGender: { $in: categoryFilter },
         },
       },
 
@@ -460,7 +133,7 @@ export const getNearbySalons = async (req, res) => {
         $project: {
           _id: 1,
           shopName: 1,
-          salonCategory: 1,
+          targetGender: 1,
           image: { $arrayElemAt: ["$galleryImages", 0] },
           distanceInMeters: 1,
           avgRating: { $round: ["$avgRating", 1] },
@@ -493,6 +166,326 @@ export const getNearbySalons = async (req, res) => {
 
 
 
+
+// Final Code for get salon by ID for salon details page. It includes distance calculation, isOpenNow logic and optimized aggregation pipeline.
+export const getSalonByID = async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { lat, lng } = req.query;
+
+    if (!salonId) {
+      return res.status(400).json({
+        success: false,
+        message: "Salon ID is required",
+      });
+    }
+
+    const salonObjectId = new mongoose.Types.ObjectId(salonId);
+
+    let pipeline = [];
+
+    // If location provided → use geoNear
+    if (lat && lng) {
+      pipeline.push({
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [parseFloat(lng), parseFloat(lat)],
+          },
+          distanceField: "distance",
+          spherical: true,
+          query: { _id: salonObjectId },
+        },
+      });
+    } else {
+      pipeline.push({
+        $match: { _id: salonObjectId },
+      });
+    }
+
+    pipeline.push({
+      $project: {
+        shopName: 1,
+        about: 1,
+        targetGender: 1,
+        contactNumber: 1,
+        offersHomeService: 1,
+        verifiedByAdmin: 1,
+        openingHours: 1,
+        logoUrl: 1,
+        coverImageUrl: 1,
+        galleryImages: 1,
+        "location.address": 1,
+        "location.city": 1,
+        "location.state": 1,
+        distance: {
+          $cond: {
+            if: { $ifNull: ["$distance", false] },
+            then: { $divide: ["$distance", 1000] }, // meters → km
+            else: null,
+          },
+        },
+      },
+    });
+
+    const result = await Salon.aggregate(pipeline);
+
+    if (!result.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found",
+      });
+    }
+
+    const salon = result[0];
+
+    // 🔥 Calculate isOpenNow
+    const today = new Date().toLocaleString("en-IN", { weekday: "short" });
+    const currentTime = new Date().toTimeString().slice(0, 5); // HH:mm
+
+    const todaySchedule = salon.openingHours?.find(
+      (day) => day.day === today
+    );
+
+    let isOpenNow = false;
+
+    if (todaySchedule) {
+      isOpenNow =
+        currentTime >= todaySchedule.start &&
+        currentTime <= todaySchedule.end;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Salon details fetched successfully",
+      salon: {
+        ...salon,
+        isOpenNow,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching salon details:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch salon details",
+    });
+  }
+};
+
+
+
+export const getFeaturedSalons = async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.query;
+
+    if (lat && isNaN(lat)) {
+      return res.status(400).json({ message: "Invalid latitude" });
+    }
+
+    if (lng && isNaN(lng)) {
+      return res.status(400).json({ message: "Invalid longitude" });
+    }
+
+    const pipeline = [
+      ...geoNearStage({
+        lat,
+        lng,
+        radius,
+      }),
+
+      // Only verified salons
+      // {
+      //   $match: { verifiedByAdmin: true },
+      // },
+
+      {
+        $lookup: {
+          from: "reviews",
+          let: { salonId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$salon", "$$salonId"] }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 }
+              }
+            }
+          ],
+          as: "reviewStats"
+        }
+      },
+      {
+        $addFields: {
+          averageRating: {
+            $ifNull: [{ $arrayElemAt: ["$reviewStats.averageRating", 0] }, 0]
+          },
+          totalReviews: {
+            $ifNull: [{ $arrayElemAt: ["$reviewStats.totalReviews", 0] }, 0]
+          }
+        }
+      },
+      {
+        $project: { reviewStats: 0 }
+      },
+      { $sort: { averageRating: -1 } },
+      { $limit: 10 },
+    ];
+
+    const salons = await Salon.aggregate(pipeline);
+
+    res.json({
+      success: true,
+      message: "Featured salons retrieved successfully",
+      salons });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+
+
+export const getAllSalonsByCategory = async (req, res) => {
+  console.log("sdgds");
+  try {
+    const { category, lat, lng, radius = 50000 } = req.query;
+    console.log(req.query);
+
+    if (category && !["men","women","unisex"].includes(category)) {
+      return res.status(400).json({ message: "Invalid category" })
+    }
+
+    if (!lat || !lng) {
+      return res.status(400).json({
+        success: false,
+        message: "lat and lng are required",
+      });
+    }
+
+    const pipeline = [
+      // 1️⃣ GEO SEARCH (must be first)
+      ...geoNearStage({ lat, lng, radius }),
+
+      // 2️⃣ CATEGORY FILTER (optional)
+      ...(category
+        ? [
+            {
+              $match: {
+                targetGender: category, // men / women / unisex
+              },
+            },
+          ]
+        : []),
+
+      // 3️⃣ SORT BY NEAREST
+      { $sort: { distanceInMeters: 1 } },
+
+      // 4️⃣ POPULATE OWNER
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner",
+        },
+      },
+      {
+        $unwind: {
+          path: "$owner",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // 5️⃣ PROJECT REQUIRED FIELDS
+      {
+        $project: {
+          shopName: 1,
+          targetGender: 1,
+          location: 1,
+          distanceInMeters: 1,
+          owner: {
+            name: 1,
+            phone: 1,
+            email: 1,
+            whatsapp: 1,
+            role: 1,
+            govermentId: 1,
+          },
+        },
+      },
+    ];
+
+    const salons = await Salon.aggregate(pipeline);
+
+    // ✅ NO SALON FOUND
+    if (salons.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        message: "No salons found for this category near you",
+        salons: [],
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: salons.length,
+      salons,
+    });
+    console.log("Salons fetched:", salons);
+  } catch (error) {
+    console.error("Error fetching salons:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching salons",
+      error: error.message,
+    });
+  }
+};
+
+export const getAllSalons = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;       // which page
+    const limit = parseInt(req.query.limit) || 20;    // how many per page
+    const skip = (page - 1) * limit;
+
+    const salons = await Salon.find()
+      .skip(skip)
+      .limit(limit)
+      .populate("owner", "name phone email whatsapp role govermentId")
+      // .populate("specialistsData")
+      // .populate("serviceItemData")
+      // .populate("reviewData");
+
+    const totalCount = await Salon.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      message: "Salons fetched successfully",
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit),
+      count: salons.length,
+      totalCount,
+      salons,
+    });
+  } catch (error) {
+    console.error("Error fetching salons:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching salons",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
 // GET /home-salons?category=men&lat=28.61&lng=77.20&radius=10
 export const getHomeSalonsByCategory = async (req, res) => {
   console.log(req.query);
@@ -512,14 +505,14 @@ export const getHomeSalonsByCategory = async (req, res) => {
       // filter by salon category
       {
         $match: {
-          salonCategory: category,
+          targetGender: category,
         },
       },
 
       {
         $project: {
           shopName: 1,
-          salonCategory: 1,
+          targetGender: 1,
           shopType: 1,
           galleryImages: 1,
           location: 1,
@@ -546,7 +539,7 @@ export const getHomeSalonsByCategory = async (req, res) => {
         const categories = await ServiceItem.aggregate([
           {
             $match: {
-              providerType: "salon",
+              providerType: "Salon",
               providerId: salon._id,
             },
           },
@@ -592,58 +585,83 @@ export const getHomeSalonsByCategory = async (req, res) => {
 };
 
 
-export const getSalonById = async (req, res) => {
+
+
+
+// Code for get salon services by salon ID.
+export const getSalonServices = async (req, res) => {
   try {
     const { salonId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(salonId)) {
-      return res.status(400).json({ message: "Invalid salon ID" });
+    if (!salonId) {
+      return res.status(400).json({
+        success: false,
+        message: "Salon ID is required",
+      });
     }
 
-    // Fetch the salon
-    const salon = await Salon.findById(salonId)
-      .populate("specialistsData")
-      .populate("reviewData");
+    const salonObjectId = new mongoose.Types.ObjectId(salonId);
 
-    if (!salon) {
-      return res.status(404).json({ message: "Salon not found" });
-    }
-
-    // Aggregate service categories
-    const serviceCategories = await ServiceItem.aggregate([
-      { $match: { providerType: "salon", providerId: salon._id } },
+    const services = await ServiceItem.aggregate([
+      {
+        $match: {
+          providerId: salonObjectId,
+          providerType: "Salon",
+        },
+      },
       {
         $lookup: {
-          from: "categories",
+          from: "servicecategories",
           localField: "category",
           foreignField: "_id",
           as: "categoryData",
         },
       },
-      { $unwind: "$categoryData" },
+      {
+        $unwind: "$categoryData",
+      },
       {
         $group: {
           _id: "$categoryData._id",
-          name: { $first: "$categoryData.name" },
+          categoryName: { $first: "$categoryData.name" },
+          services: {
+            $push: {
+              _id: "$_id",
+              name: "$name",
+              price: "$price",
+              duration: "$duration",
+              description: "$description",
+            },
+          },
         },
+      },
+      {
+        $project: {
+          _id: 0,
+          categoryId: "$_id",
+          categoryName: 1,
+          services: 1,
+        },
+      },
+      {
+        $sort: { categoryName: 1 },
       },
     ]);
 
-    console.log("Fetched salon with categories:", salon);
-
-    // Send salon + service categories in response
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: {
-        ...salon.toObject(), // convert Mongoose document to plain JS object
-        serviceCategories,   // include aggregated categories
-      },
+      count: services.length,
+      categories: services,
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error", error: err.message });
+  } catch (error) {
+    console.error("Error fetching salon services:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch salon services",
+    });
   }
 };
+
 
 export const getSalonDetails = async (req, res) => {
   try {
