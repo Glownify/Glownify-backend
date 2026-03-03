@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import Salon from "../models/Salon.js";
 import ServiceItem from "../models/ServiceItem.js";
-import Category from "../models/Category.js";
+import ServiceCategory from "../models/ServiceCategory.js";
 import Review from "../models/Review.js"; // Use for virtual populate dont remove
 import Specialist from "../models/Specialist.js";
 

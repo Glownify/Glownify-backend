@@ -1,5 +1,6 @@
 import Salon from "../models/Salon.js";
 import ServiceItem from "../models/ServiceItem.js";
+import mongoose from "mongoose";
 
 export const createServiceItem = async (req, res) => {
   try {
@@ -114,5 +115,95 @@ export const getServiceItemsByCategory = async (req, res) => {
   } catch (error) {
     console.error("Error fetching services:", error);
     res.status(500).json({ success: false, message: "Server error while fetching services", error: error.message });
+  }
+};
+
+
+
+// API to get all service items of a salon grouped by category
+import SubService from "../models/SubService.js";
+export const getSalonServiceItems = async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { serviceCategoryId, serviceMode } = req.query;
+
+    // 🔎 Validation
+    if (!salonId || !serviceCategoryId || !serviceMode) {
+      return res.status(400).json({
+        success: false,
+        message: "salonId, serviceCategoryId and serviceMode are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(salonId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid salon ID",
+      });
+    }
+
+    // 🔥 Step 1: Fetch Service Items
+    const serviceItems = await ServiceItem.find({
+      providerId: salonId,
+      providerType: "Salon", // fixed
+      serviceCategory: serviceCategoryId,
+      status: "active",
+      serviceMode: { $in: [serviceMode, "both"] },
+    })
+      .populate("serviceCategory", "name")
+      .lean();
+
+    const serviceIds = serviceItems.map(item => item._id);
+
+    // 🔥 Step 2: Fetch SubServices
+    const subServices = await SubService.find({
+      serviceItem: { $in: serviceIds },
+      status: "active",
+    }).lean();
+
+    // 🔥 Step 3: Map SubServices
+    const subServiceMap = {};
+    subServices.forEach(sub => {
+      if (!subServiceMap[sub.serviceItem]) {
+        subServiceMap[sub.serviceItem] = [];
+      }
+
+      subServiceMap[sub.serviceItem].push({
+        _id: sub._id,
+        name: sub.name,
+        price: sub.price,
+        durationMins: sub.durationMins,
+        imageURL: sub.imageURL,
+        description: sub.description,
+      });
+    });
+
+    // 🔥 Step 4: Final Response Structure
+    const formattedServices = serviceItems.map(item => ({
+      _id: item._id,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      durationMins: item.durationMins,
+      imageURL: item.imageURL,
+      status: item.status,
+      serviceMode: item.serviceMode,
+      subServices: subServiceMap[item._id] || [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      serviceData: {
+        category: serviceItems[0]?.serviceCategory?.name || null,
+        services: formattedServices,
+      },
+    });
+
+  } catch (error) {
+    console.error("Error fetching salon services:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };

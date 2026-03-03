@@ -7,10 +7,10 @@ const independentSchema = new mongoose.Schema(
 
     experienceYears: Number,
     serviceTypes: [String],
-    specializations: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }],
+    specializations: [{ type: mongoose.Schema.Types.ObjectId, ref: "ServiceCategory" }],
 
-    // 
-    serviceCategory: {
+    // targetGender is describes the primary audience of the independent professional, not the gender of the professional themselves.
+    targetGender: {
       type: String,
       enum: ["men", "women", "unisex"],
       required: true,
