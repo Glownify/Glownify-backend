@@ -25,6 +25,7 @@ import categoryRoutes from './routes/categoryRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import salonRoutes from './routes/salonRoutes.js';
 import serviceItemRoutes from './routes/serviceItemRoutes.js';
+import specialistRoutes from './routes/specialistRoute.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -60,10 +61,11 @@ app.use('/api/v1/salons', salonRoutes); // For salon related routes (like getSal
 app.use('/api/v1/independent-pro', independentProRoutes);
 app.use('/api/v1/service-items', serviceItemRoutes); // For service item related routes (like getSalonServiceItems)
 app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/bookings', bookingRoutes);
+app.use('/api/v1/specialists', specialistRoutes);
 
 app.use('/api/v1/state-city', stateCityRoutes);
 app.use('/api/v1/sales-executive', salesExecutiveRoutes);
-app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 
 
