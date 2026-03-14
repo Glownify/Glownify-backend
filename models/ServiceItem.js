@@ -23,8 +23,8 @@ const serviceItemSchema = new mongoose.Schema({
     required: true
   },
   providerId: { type: mongoose.Schema.Types.ObjectId, refPath: "providerType", required: true },
-  addOns: [{ type: mongoose.Schema.Types.ObjectId, ref: "AddOn" }],
   bookingsCount: { type: Number, default: 0 }, // For analytics and sorting
+  // addOns: [{ type: mongoose.Schema.Types.ObjectId, ref: "AddOn" }],
 }, { timestamps: true });
 
 // virtual populate for addOns
