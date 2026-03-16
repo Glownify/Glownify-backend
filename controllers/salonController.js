@@ -168,6 +168,109 @@ export const getNearbySalons = async (req, res) => {
 
 
 // Final Code for get salon by ID for salon details page. It includes distance calculation, isOpenNow logic and optimized aggregation pipeline.
+// export const getSalonByID = async (req, res) => {
+//   try {
+//     const { salonId } = req.params;
+//     const { lat, lng } = req.query;
+
+//     if (!salonId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Salon ID is required",
+//       });
+//     }
+
+//     const salonObjectId = new mongoose.Types.ObjectId(salonId);
+
+//     let pipeline = [];
+
+//     // If location provided → use geoNear
+//     if (lat && lng) {
+//       pipeline.push({
+//         $geoNear: {
+//           near: {
+//             type: "Point",
+//             coordinates: [parseFloat(lng), parseFloat(lat)],
+//           },
+//           distanceField: "distance",
+//           spherical: true,
+//           query: { _id: salonObjectId },
+//         },
+//       });
+//     } else {
+//       pipeline.push({
+//         $match: { _id: salonObjectId },
+//       });
+//     }
+
+//     pipeline.push({
+//       $project: {
+//         shopName: 1,
+//         about: 1,
+//         targetGender: 1,
+//         contactNumber: 1,
+//         offersHomeService: 1,
+//         verifiedByAdmin: 1,
+//         openingHours: 1,
+//         logoUrl: 1,
+//         coverImageUrl: 1,
+//         galleryImages: 1,
+//         "location.address": 1,
+//         "location.city": 1,
+//         "location.state": 1,
+//         distance: {
+//           $cond: {
+//             if: { $ifNull: ["$distance", false] },
+//             then: { $divide: ["$distance", 1000] }, // meters → km
+//             else: null,
+//           },
+//         },
+//       },
+//     });
+
+//     const result = await Salon.aggregate(pipeline);
+
+//     if (!result.length) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Salon not found",
+//       });
+//     }
+
+//     const salon = result[0];
+
+//     // 🔥 Calculate isOpenNow
+//     const today = new Date().toLocaleString("en-IN", { weekday: "short" });
+//     const currentTime = new Date().toTimeString().slice(0, 5); // HH:mm
+
+//     const todaySchedule = salon.openingHours?.find(
+//       (day) => day.day === today
+//     );
+
+//     let isOpenNow = false;
+
+//     if (todaySchedule) {
+//       isOpenNow =
+//         currentTime >= todaySchedule.start &&
+//         currentTime <= todaySchedule.end;
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Salon details fetched successfully",
+//       salon: {
+//         ...salon,
+//         isOpenNow,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching salon details:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch salon details",
+//     });
+//   }
+// };
 export const getSalonByID = async (req, res) => {
   try {
     const { salonId } = req.params;
@@ -184,22 +287,15 @@ export const getSalonByID = async (req, res) => {
 
     let pipeline = [];
 
-    // If location provided → use geoNear
+    // ✅ use geoNear utils
     if (lat && lng) {
+      pipeline.push(...geoNearStage({ lat, lng}));
       pipeline.push({
-        $geoNear: {
-          near: {
-            type: "Point",
-            coordinates: [parseFloat(lng), parseFloat(lat)],
-          },
-          distanceField: "distance",
-          spherical: true,
-          query: { _id: salonObjectId },
-        },
+        $match: { _id: salonObjectId }
       });
     } else {
       pipeline.push({
-        $match: { _id: salonObjectId },
+        $match: { _id: salonObjectId }
       });
     }
 
@@ -218,14 +314,10 @@ export const getSalonByID = async (req, res) => {
         "location.address": 1,
         "location.city": 1,
         "location.state": 1,
-        distance: {
-          $cond: {
-            if: { $ifNull: ["$distance", false] },
-            then: { $divide: ["$distance", 1000] }, // meters → km
-            else: null,
-          },
-        },
-      },
+
+        // ✅ SAME as getNearbySalons
+        distanceInMeters: 1
+      }
     });
 
     const result = await Salon.aggregate(pipeline);
@@ -233,15 +325,15 @@ export const getSalonByID = async (req, res) => {
     if (!result.length) {
       return res.status(404).json({
         success: false,
-        message: "Salon not found",
+        message: "Salon not found"
       });
     }
 
     const salon = result[0];
 
-    // 🔥 Calculate isOpenNow
+    // 🔥 isOpenNow logic
     const today = new Date().toLocaleString("en-IN", { weekday: "short" });
-    const currentTime = new Date().toTimeString().slice(0, 5); // HH:mm
+    const currentTime = new Date().toTimeString().slice(0, 5);
 
     const todaySchedule = salon.openingHours?.find(
       (day) => day.day === today
@@ -260,17 +352,20 @@ export const getSalonByID = async (req, res) => {
       message: "Salon details fetched successfully",
       salon: {
         ...salon,
-        isOpenNow,
-      },
+        isOpenNow
+      }
     });
+
   } catch (error) {
     console.error("Error fetching salon details:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch salon details",
+      message: "Failed to fetch salon details"
     });
   }
 };
+
+
 
 
 
