@@ -467,3 +467,107 @@ export const resetSpecialistPassword = async (req, res) => {
 
   }
 };
+
+
+
+// api for get all specialists of a salon, Salon Owner Protected Route
+export const getAllSpecialists = async (req, res) => {
+  try {
+
+    const userId = req.userId;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const skip = (page - 1) * limit;
+
+    const salon = await Salon.findOne({ owner: userId });
+
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found"
+      });
+    }
+
+    const total = await Specialist.countDocuments({
+      salon: salon._id
+    });
+
+    const specialists = await Specialist.find({
+      salon: salon._id
+    })
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      specialists
+    });
+
+  } catch (error) {
+
+    console.error("Get Specialists Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+
+  }
+};
+
+
+
+// API to get specialist by ID, Salon Owner Protected Route
+export const getSpecialistById = async (req, res) => {
+  try {
+
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const salon = await Salon.findOne({ owner: userId });
+
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found"
+      });
+    }
+
+    const specialist = await Specialist.findOne({
+      salon: salon._id,
+      specialistId: id
+    }).select("-password");
+
+    if (!specialist) {
+      return res.status(404).json({
+        success: false,
+        message: "Specialist not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      specialist
+    });
+
+  } catch (error) {
+
+    console.error("Get Specialist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+
+  }
+};
+
+

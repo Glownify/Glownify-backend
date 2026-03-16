@@ -1,5 +1,5 @@
 import express from "express";
-import { addSpecialist, specialistLogin, resetSpecialistPassword } from "../controllers/specialistController.js";
+import { addSpecialist, specialistLogin, resetSpecialistPassword, getAllSpecialists, getSpecialistById } from "../controllers/specialistController.js";
 import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
@@ -14,7 +14,7 @@ router.post(
 
 /* Salon owner adds specialist (Salon Owner Protected)*/
 router.post(
-    "/add-specialist",
+    "/",
     authenticate,
     authorizeRoles("salon_owner"),
     addSpecialist
@@ -30,12 +30,22 @@ router.patch(
 );
 
 
-// router to get all and specific specialist with  ?id 
+// router to get all specialist
 router.get(
-    "/specialists",
+    "/",
     authenticate,
     authorizeRoles("salon_owner"),
-    getSpecialists
+    getAllSpecialists
 );
+
+router.get(
+    "/:id",
+    authenticate,
+    authorizeRoles("salon_owner"),
+    getSpecialistById
+);
+
+
+
 
 export default router;
