@@ -300,9 +300,67 @@ export const addServiceItem = async (req, res) => {
 
 
 // API for Get Service Items (Salon Owner and Independent Professional)
+// export const getProviderServiceItems = async (req, res) => {
+//   try {
+
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const skip = (page - 1) * limit;
+
+//     let providerId;
+
+//     // ✅ If Salon Owner
+//     if (req.user.role === "salon_owner") {
+
+//       const salon = await Salon.findOne({ owner: req.userId });
+
+//       if (!salon) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Salon not found for this owner"
+//         });
+//       }
+
+//       providerId = salon._id;
+//     }
+
+//     // ✅ If Independent Professional
+//     if (req.user.role === "independent_pro") {
+//       providerId = req.userId;
+//     }
+
+//     // Step 2: get service items
+//     const serviceItems = await ServiceItem.find({ providerId })
+//       .skip(skip)
+//       .limit(limit)
+//       .sort({ createdAt: -1 });
+
+//     const total = await ServiceItem.countDocuments({ providerId });
+
+//     res.status(200).json({
+//       success: true,
+//       page,
+//       limit,
+//       total,
+//       totalPages: Math.ceil(total / limit),
+//       data: serviceItems
+//     });
+
+//   } catch (error) {
+//     console.error("Get Service Items Error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server Error"
+//     });
+//   }
+// };
+
+// API for Get Service Items by Provider (Salon Owner and Independent Professional) with gender based filtering for independent professionals
 export const getProviderServiceItems = async (req, res) => {
   try {
 
+    const { gender } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -310,9 +368,8 @@ export const getProviderServiceItems = async (req, res) => {
 
     let providerId;
 
-    // ✅ If Salon Owner
+    // ✅ Salon Owner
     if (req.user.role === "salon_owner") {
-
       const salon = await Salon.findOne({ owner: req.userId });
 
       if (!salon) {
@@ -325,18 +382,62 @@ export const getProviderServiceItems = async (req, res) => {
       providerId = salon._id;
     }
 
-    // ✅ If Independent Professional
-    if (req.user.role === "independent_pro") {
-      providerId = req.userId;
+    // ✅ Independent Professional
+    if (req.user.role === "independent_professional") {
+      const independent = await IndependentProfessional.findOne({ user: req.userId });
+
+      if (!independent) {
+        return res.status(404).json({
+          success: false,
+          message: "Independent professional not found"
+        });
+      }
+
+      providerId = independent._id;
     }
 
-    // Step 2: get service items
-    const serviceItems = await ServiceItem.find({ providerId })
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+    // ✅ Base match
+    const matchStage = {
+      providerId: providerId
+    };
 
-    const total = await ServiceItem.countDocuments({ providerId });
+    // ✅ Aggregation pipeline
+    const pipeline = [
+      { $match: matchStage },
+
+      {
+        $lookup: {
+          from: "servicecategories", // collection name (lowercase + plural)
+          localField: "serviceCategory",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+
+      { $unwind: "$category" },
+
+      // 🔥 Optional gender filter
+      ...(gender ? [{ $match: { "category.gender": gender } }] : []),
+
+      { $sort: { createdAt: -1 } },
+
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: limit }
+          ],
+          totalCount: [
+            { $count: "count" }
+          ]
+        }
+      }
+    ];
+
+    const result = await ServiceItem.aggregate(pipeline);
+
+    const serviceItems = result[0].data;
+    const total = result[0].totalCount[0]?.count || 0;
 
     res.status(200).json({
       success: true,

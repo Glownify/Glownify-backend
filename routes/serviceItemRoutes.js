@@ -6,11 +6,21 @@ import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
 
+// ✅ GET SERVICES ITEMS BY PROVIDER (Salon Owner & Independent Professional)
+router.get(
+    "/provider",
+    authenticate,
+    authorizeRoles("salon_owner", "independent_professional"),
+    getProviderServiceItems
+);
+
 // API to get service item details by ID (public)
 router.get(
     "/:id",
     getServiceItemById
 );
+
+
 
 // ✅ ADD SERVICE ITEM (Salon Owner)
 router.post(
@@ -21,13 +31,6 @@ router.post(
 );
 
 
-// ✅ GET SERVICES ITEMS BY PROVIDER (Salon Owner & Independent Professional)
-router.get(
-    "/provider",
-    authenticate,
-    authorizeRoles("salon_owner", "independent_professional"),
-    getProviderServiceItems
-);
 
 // ✅ UPDATE SERVICE ITEM and INDEPENDENT PROFESSIONAL (Salon Owner)
 router.patch(
