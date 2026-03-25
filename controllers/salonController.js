@@ -1,5 +1,7 @@
 import Salon from "../models/Salon.js";
+import Booking from "../models/Booking.js";
 import ServiceItem from "../models/ServiceItem.js";
+import Review from "../models/Review.js";
 import {geoNearStage} from "../utils/geoPipeline.js";
 import mongoose from "mongoose";
 
@@ -815,5 +817,164 @@ export const verifySalonByAdmin = async (req, res) => {
   } catch (error) {
     console.error("Error verifying salon:", error);
     res.status(500).json({ message: "Server error while verifying salon", error: error.message });
+  }
+};
+
+
+
+
+
+
+// Code For get Salon Profile + Dashboard data (salon view)
+
+// 🔥 Helper: check salon open or not
+const isSalonOpenNow = (openingHours) => {
+  const now = new Date();
+
+  const daysMap = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const today = daysMap[now.getDay()];
+
+  const todaySchedule = openingHours.find(d => d.day === today);
+
+  if (!todaySchedule) return false;
+
+  const currentTime = now.toTimeString().slice(0,5); // "HH:MM"
+
+  return currentTime >= todaySchedule.start && currentTime <= todaySchedule.end;
+};
+
+export const getSalonProfileDashboard = async (req, res) => {
+  try {
+
+    // ✅ Step 1: get salon
+    const salon = await Salon.findOne({ owner: req.userId });
+
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found"
+      });
+    }
+
+    const providerId = salon._id;
+
+    // ✅ Step 2: Parallel queries (🔥 optimized)
+    const [
+      totalBookings,
+      uniqueCustomers,
+      services,
+      specialists,
+      reviews,
+      ratingData
+    ] = await Promise.all([
+
+      // total bookings
+      Booking.countDocuments({ providerId }),
+
+      // unique customers
+      Booking.distinct("customer", { providerId }),
+
+      // top 5 services
+      ServiceItem.find({ providerId })
+        .sort({ bookingsCount: -1 })
+        .limit(5)
+        .select("name price durationMins"),
+
+      // top 5 specialists
+      Specialist.find({ salon: providerId })
+        .limit(5)
+        .select("name"),
+
+      // latest 5 reviews
+      Review.find({ targetType: "Salon", targetId: providerId })
+        .populate("user", "name")
+        .sort({ createdAt: -1 })
+        .limit(5),
+
+      // rating aggregation
+      Review.aggregate([
+        {
+          $match: {
+            targetType: "Salon",
+            targetId: providerId
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            avgRating: { $avg: "$rating" },
+            totalReviews: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    // ✅ Step 3: format rating
+    const rating = {
+      average: ratingData[0]?.avgRating?.toFixed(1) || 0,
+      count: ratingData[0]?.totalReviews || 0
+    };
+
+    // ✅ Step 4: open status
+    const isOpenNow = isSalonOpenNow(salon.openingHours);
+
+    // ✅ Step 5: response
+    res.status(200).json({
+      success: true,
+      data: {
+
+        // 🏪 Salon Info
+        salonInfo: {
+          name: salon.shopName,
+          about: salon.about,
+          location: salon.location,
+          contact: {
+            phone: salon.contactNumber,
+            whatsapp: salon.whatsappNumber
+          },
+          logo: salon.logoUrl,
+          coverImage: salon.coverImageUrl
+        },
+
+        // ⭐ Rating
+        rating,
+
+        // 🟢 Status
+        isOpenNow,
+
+        // 🏠 Home service
+        offersHomeService: salon.offersHomeService,
+
+        // 📊 Analytics
+        analytics: {
+          totalBookings,
+          totalCustomers: uniqueCustomers.length
+        },
+
+        // 🕒 Opening hours
+        openingHours: salon.openingHours,
+
+        // 💇 Services
+        topServices: services,
+
+        // 👨‍🔬 Specialists
+        topSpecialists: specialists,
+
+        // 💬 Reviews
+        reviews: reviews.map(r => ({
+          userName: r.user?.name,
+          rating: r.rating,
+          comment: r.comment,
+          date: r.createdAt
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error("Salon Dashboard Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
   }
 };

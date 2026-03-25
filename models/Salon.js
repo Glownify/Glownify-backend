@@ -141,7 +141,7 @@ salonSchema.virtual("addOnsData", {
   ref: "AddOn",
   localField: "_id",
   foreignField: "providerId",
-  options: { match: { providerType: "salon" } }
+  options: { match: { providerType: "Salon" } }
 });
 
 // Reviews virtual

@@ -1,9 +1,11 @@
 import express from "express";
 import { getSalonByID } from "../controllers/salonController.js";
 import { getSalonServices } from "../controllers/salonController.js";
-import { authenticate, isSuperAdmin } from "../middlewares/authMiddleware.js";
+import { authenticate, isSuperAdmin, isSalonOwner, authorizeRoles } from "../middlewares/authMiddleware.js";
 import { getAllSalons, getUnverifiedSalons, verifySalonByAdmin, getFeaturedSalons } from "../controllers/salonController.js";
 import { getNearbySalons } from "../controllers/salonController.js";
+import { getSalonOwnerDashboard } from "../controllers/dashboardController.js";
+import { getSalonProfileDashboard } from "../controllers/salonController.js";
 
 const router = express.Router();
 
@@ -25,6 +27,25 @@ router.get("/:salonId", getSalonByID);
 router.get("/", authenticate, isSuperAdmin, getAllSalons);
 router.get("/unverified", authenticate, isSuperAdmin, getUnverifiedSalons);
 router.patch("/:salonId/verify", authenticate, isSuperAdmin, verifySalonByAdmin);
+
+
+// SALON ADMIN PROTECTED
+router.get(
+    "/owner/dashboard",
+    authenticate,
+    authorizeRoles("salon_owner"),
+    getSalonOwnerDashboard
+);
+
+
+
+router.get(
+    "/profile/mysalon",
+    authenticate,
+    authorizeRoles("salon_owner"),
+    getSalonProfileDashboard
+);
+
 
 
 export default router;
