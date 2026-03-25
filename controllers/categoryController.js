@@ -105,7 +105,13 @@ export const getAllCategories = async (req, res) => {
         });
       }
 
-      filter.gender = gender;
+      if (gender === "men") {
+        filter.gender = { $in: ["men", "unisex"] };
+      } else if (gender === "women") {
+        filter.gender = { $in: ["women", "unisex"] };
+      } else if (gender === "unisex") {
+        filter.gender = "unisex";
+      }
     }
 
     // ✅ Total count for pagination
