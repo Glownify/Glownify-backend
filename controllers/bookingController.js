@@ -142,12 +142,19 @@ export const getBookingBySalonId = async (req, res) => {
 };
 
 
+
+
+
+
+
+
+
 // --- Below Codes are new code.
 // For both salon and independent provider to fetch their bookings with optional status filter
 export const getBookingsByProvider = async (req, res) => {
   try {
 
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, bookingType, page = 1, limit = 10 } = req.query;
     const userId = req.userId;
 
     let providerId;
@@ -173,8 +180,14 @@ export const getBookingsByProvider = async (req, res) => {
 
     let filter = { providerId };
 
+    // status filter
     if (status) {
       filter.status = status;
+    }
+
+    // 🔥 NEW bookingType filter
+    if (bookingType) {
+      filter.bookingType = bookingType;
     }
 
     const skip = (page - 1) * limit;
@@ -199,12 +212,10 @@ export const getBookingsByProvider = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
 };
 
