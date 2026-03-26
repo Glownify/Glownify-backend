@@ -1,9 +1,5 @@
 import { Router } from 'express';
-import { giveReview } from '../controllers/userController.js';
 import { authenticate, isSuperAdmin } from '../middlewares/authMiddleware.js';
-import { getFeaturedSalons, getNearbySalons, getHomeSalonsByCategory, getAllSalonsByCategory } from '../controllers/salonController.js';
-import { getHomeIndependentPros } from "../controllers/independentProController.js";
-import { getServiceItemsByCategory } from '../controllers/serviceItemController.js';
 import { verifyUser, blockUser, activateUser, getAllUsers } from '../controllers/userController.js';
 
 const router = Router();
