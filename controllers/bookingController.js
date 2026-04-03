@@ -6,78 +6,156 @@ import IndependentProfessional from "../models/IndependentProfessional.js";
 import AddOn from "../models/AddOn.js";
 import User from "../models/User.js";
 
+
+
+// New booking flow for both salon and independent professional with service code generation, status management, and optional booking type filter.
 export const createBooking = async (req, res) => {
   try {
-    const userId = req.userId;
-    const { bookings } = req.body;
-    console.log("Create Booking Payload:", req.body);
+    const userId = req.user._id;
 
-    if (!userId || !bookings?.length) {
-      return res.status(400).json({ message: "Invalid booking payload" });
+    const {
+      providerType,
+      providerId,
+      serviceItems,
+      bookingDate,
+      timeSlot,
+      bookingType,
+      serviceLocation,
+    } = req.body;
+
+    // ✅ Basic validation
+    if (!serviceItems || serviceItems.length === 0) {
+      return res.status(400).json({ message: "No services selected" });
     }
 
-    const createdBookings = [];
+    if (!bookingDate || !timeSlot?.start || !timeSlot?.end) {
+      return res.status(400).json({ message: "Invalid booking date/time" });
+    }
 
-    for (const salonBooking of bookings) {
-      const { providerId, services, bookingDate, timeSlot, bookingType, serviceLocation } = salonBooking;
-      /* ---------- VALIDATE PROVIDER ---------- */
+    // 🔒 SLOT AVAILABILITY CHECK
+    const existingBooking = await Booking.findOne({
+      providerId,
+      bookingDate: new Date(bookingDate),
+      status: { $nin: ["cancelled"] },
+      $expr: {
+        $and: [
+          { $lt: [timeSlot.start, "$timeSlot.end"] },
+          { $gt: [timeSlot.end, "$timeSlot.start"] },
+        ],
+      },
+    });
 
-      /* ---------------- FETCH SERVICES ---------------- */
-      const serviceDocs = await ServiceItem.find({
-        _id: { $in: services },
-        providerId: providerId,
+    if (existingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "Slot already booked, please choose another time",
       });
+    }
 
+    let totalAmount = 0;
+    const finalServiceItems = [];
 
-      if (serviceDocs.length !== services.length) {
-        return res.status(400).json({
-          message: "Invalid service selection",
-        });
+    // 🔁 Process services
+    for (const item of serviceItems) {
+      const service = await ServiceItem.findById(item.serviceId);
+
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
       }
 
-      /* ---------------- PRICE CALCULATION ---------------- */
-      let totalAmount = 0;
-      const serviceItems = serviceDocs.map((service) => {
-        totalAmount += service.price;
-        return {
-          service: service._id,
-          quantity: 1,
-          price: service.price,
-        };
+      if (
+        service.providerId.toString() !== providerId ||
+        service.providerType !== providerType
+      ) {
+        return res.status(400).json({ message: "Invalid service provider" });
+      }
+
+      if (service.status !== "active") {
+        return res
+          .status(400)
+          .json({ message: `${service.name} is not available` });
+      }
+
+      // 💰 Price snapshot
+      const servicePrice =
+        service.price - (service.price * service.discountPercent) / 100;
+
+      const quantity = item.quantity || 1;
+      let serviceTotal = servicePrice * quantity;
+
+      let addonTotal = 0;
+      let finalAddons = [];
+
+      // 🔁 Addons
+      if (item.addons && item.addons.length > 0) {
+        for (const ad of item.addons) {
+          const addon = await AddOn.findById(ad.addonId);
+
+          if (!addon) {
+            return res.status(404).json({ message: "Addon not found" });
+          }
+
+          if (addon.serviceItemId.toString() !== item.serviceId) {
+            return res
+              .status(400)
+              .json({ message: "Invalid addon for selected service" });
+          }
+
+          const addonQty = ad.quantity || 1;
+          const addonPrice = addon.price;
+
+          const addonCost = addonPrice * addonQty;
+          addonTotal += addonCost;
+
+          finalAddons.push({
+            addon: addon._id,
+            quantity: addonQty,
+            price: addonPrice,
+          });
+        }
+      }
+
+      totalAmount += serviceTotal + addonTotal;
+
+      finalServiceItems.push({
+        service: service._id,
+        quantity,
+        price: servicePrice,
+        addons: finalAddons,
       });
-
-      console.log("Total Amount:", totalAmount);
-
-      /* ---------------- CREATE BOOKING ---------------- */
-      const booking = await Booking.create({
-        customer: userId,
-        // providerType,
-        providerId,
-        serviceItems,
-        bookingDate,
-        timeSlot,
-        bookingType,
-        serviceLocation: bookingType === "home_service" ? serviceLocation : null,
-        totalAmount,
-        paymentStatus: "pending",
-        status: "pending",
-      });
-
-      createdBookings.push(booking);
     }
-    console.log("Created Bookings:", createdBookings);
+
+    // 🧾 Create booking
+    const booking = await Booking.create({
+      customer: userId,
+      providerType,
+      providerId,
+      serviceItems: finalServiceItems,
+      bookingDate,
+      timeSlot,
+      bookingType,
+      serviceLocation: bookingType === "home_service" ? serviceLocation : null,
+      totalAmount,
+    });
+
     return res.status(201).json({
+      success: true,
       message: "Booking created successfully",
-      bookings: createdBookings,
+      booking,
     });
   } catch (error) {
-    console.error("Create Booking Error:", error);
-    return res.status(500).json({
-      message: "Failed to create booking",
-      error: error.message,
+    console.error("Booking Error:", error.message);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Something went wrong",
     });
   }
 };
+
+
+
+
 
 export const getBookingByUserId = async (req, res) => {
   const userId = req.userId;

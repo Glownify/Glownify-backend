@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 
 const addOnSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
-  // serviceId: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceItem", required: true, index: true },
   serviceItemId: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceItem", required: true, index: true },
   price: { type: Number, required: true, min: 0 },
   duration: { type: Number, default: 0 },

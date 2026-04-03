@@ -33,26 +33,37 @@ const bookingSchema = new mongoose.Schema(
     /* ---------------- SERVICES ---------------- */
     serviceItems: [
       {
-        service: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "ServiceItem",
-          required: true,
+        service: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: "ServiceItem", 
+          required: true, 
         },
-        quantity: { type: Number, default: 1 },
-        price: { type: Number, required: true },
-      },
+        quantity: Number,
+        price: Number,
+
+        addons: [
+          {
+            addon: { 
+              type: mongoose.Schema.Types.ObjectId, 
+              ref: "AddOns"
+            },
+            quantity: Number,
+            price: Number
+          }
+        ]
+      }
     ],
 
-    addons: [
-      {
-        addon: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "AddOn",
-        },
-        quantity: { type: Number, default: 1 },
-        price: { type: Number, required: true },
-      },
-    ],
+    // addons: [
+    //   {
+    //     addon: {
+    //       type: mongoose.Schema.Types.ObjectId,
+    //       ref: "AddOn",
+    //     },
+    //     quantity: { type: Number, default: 1 },
+    //     price: { type: Number, required: true },
+    //   },
+    // ],
 
     /* ---------------- SCHEDULE ---------------- */
     bookingDate: {
@@ -109,7 +120,7 @@ const bookingSchema = new mongoose.Schema(
         "completed",    // finished
         "cancelled",    // cancelled by user/provider
         "no_show",      // customer didn't arrive
-        "rescheduled",   // rescheduled to a new time accorrding to pdf
+        "rescheduled",  // rescheduled to a new time accorrding to pdf
       ],
       default: "pending",
       index: true,
