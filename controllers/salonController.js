@@ -7,6 +7,165 @@ import mongoose from "mongoose";
 
 
 // get nearby salons final code with all features and optimizations. 
+// export const getNearbySalons = async (req, res) => {
+//   try {
+//     const {
+//       lat,
+//       lng,
+//       radius = 10,
+//       category,
+//       page = 1,
+//       limit = 5,
+//     } = req.query;
+
+//     if (!lat || !lng || !category) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Latitude, longitude and category are required",
+//       });
+//     }
+
+//     const pageNumber = parseInt(page);
+//     const pageSize = parseInt(limit);
+//     const skip = (pageNumber - 1) * pageSize;
+
+//     // ✅ Category logic
+//     let categoryFilter = [];
+//     if (category === "men") categoryFilter = ["men", "unisex"];
+//     else if (category === "women") categoryFilter = ["women", "unisex"];
+//     else if (category === "unisex") categoryFilter = ["unisex"];
+//     else {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid category",
+//       });
+//     }
+
+//     const pipeline = [
+//       // ✅ GEO STAGE (nearest first automatically)
+//       ...geoNearStage({ lat, lng, radius }),
+
+//       // ✅ Category Filter
+//       {
+//         $match: {
+//           targetGender: { $in: categoryFilter },
+//         },
+//       },
+
+//       // ✅ Top 3 Popular Services
+//       {
+//         $lookup: {
+//           from: "serviceitems",
+//           let: { salonId: "$_id" },
+//           pipeline: [
+//             {
+//               $match: {
+//                 $expr: {
+//                   $and: [
+//                     { $eq: ["$providerId", "$$salonId"] },
+//                     { $eq: ["$providerType", "Salon"] },
+//                     { $eq: ["$status", "active"] }
+//                   ]
+//                 }
+//               }
+//             },
+//             { $sort: { bookingsCount: -1 } },
+//             { $limit: 3 },
+//             {
+//               $project: {
+//                 _id: 0,
+//                 name: 1,
+//                 price: 1
+//               }
+//             }
+//           ],
+//           as: "popularServices"
+//         }
+//       },
+
+//       // ✅ Reviews Lookup (UPDATED FOR targetType + targetId)
+//       {
+//         $lookup: {
+//           from: "reviews",
+//           let: { salonId: "$_id" },
+//           pipeline: [
+//             {
+//               $match: {
+//                 $expr: {
+//                   $and: [
+//                     { $eq: ["$targetId", "$$salonId"] },
+//                     { $eq: ["$targetType", "Salon"] }
+//                   ]
+//                 }
+//               }
+//             },
+//             {
+//               $group: {
+//                 _id: null,
+//                 avgRating: { $avg: "$rating" },
+//                 totalRatings: { $sum: 1 }
+//               }
+//             }
+//           ],
+//           as: "ratingData"
+//         }
+//       },
+
+//       // ✅ Add Rating Fields
+//       {
+//         $addFields: {
+//           avgRating: {
+//             $ifNull: [{ $arrayElemAt: ["$ratingData.avgRating", 0] }, 0]
+//           },
+//           totalRatings: {
+//             $ifNull: [{ $arrayElemAt: ["$ratingData.totalRatings", 0] }, 0]
+//           }
+//         }
+//       },
+
+//       // ✅ Sort by Nearest Only
+//       { $sort: { distanceInMeters: 1 } },
+
+//       // ✅ Pagination
+//       { $skip: skip },
+//       { $limit: pageSize },
+
+//       // ✅ Final Projection (Offer Removed)
+//       {
+//         $project: {
+//           _id: 1,
+//           shopName: 1,
+//           targetGender: 1,
+//           image: { $arrayElemAt: ["$galleryImages", 0] },
+//           distanceInMeters: 1,
+//           avgRating: { $round: ["$avgRating", 1] },
+//           totalRatings: 1,
+//           popularServices: 1,
+//           offersHomeService: 1
+//         }
+//       }
+//     ];
+
+//     const salons = await Salon.aggregate(pipeline);
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Nearby salons fetched successfully",
+//       page: pageNumber,
+//       limit: pageSize,
+//       count: salons.length,
+//       data: salons,
+//     });
+
+//   } catch (error) {
+//     console.error("Error fetching nearby salons:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch nearby salons",
+//     });
+//   }
+// };
+
 export const getNearbySalons = async (req, res) => {
   try {
     const {
@@ -15,7 +174,7 @@ export const getNearbySalons = async (req, res) => {
       radius = 10,
       category,
       page = 1,
-      limit = 5,
+      limit = 10,
     } = req.query;
 
     if (!lat || !lng || !category) {
@@ -41,18 +200,17 @@ export const getNearbySalons = async (req, res) => {
       });
     }
 
-    const pipeline = [
-      // ✅ GEO STAGE (nearest first automatically)
-      ...geoNearStage({ lat, lng, radius }),
+    // 🔥 COMMON PIPELINE (without skip/limit)
+    const basePipeline = [
+      ...geoNearStage({ lat, lng, radius }), // ✅ already sorts by distance
 
-      // ✅ Category Filter
       {
         $match: {
           targetGender: { $in: categoryFilter },
         },
       },
 
-      // ✅ Top 3 Popular Services
+      // ✅ Popular Services
       {
         $lookup: {
           from: "serviceitems",
@@ -64,26 +222,22 @@ export const getNearbySalons = async (req, res) => {
                   $and: [
                     { $eq: ["$providerId", "$$salonId"] },
                     { $eq: ["$providerType", "Salon"] },
-                    { $eq: ["$status", "active"] }
-                  ]
-                }
-              }
+                    { $eq: ["$status", "active"] },
+                  ],
+                },
+              },
             },
             { $sort: { bookingsCount: -1 } },
             { $limit: 3 },
             {
-              $project: {
-                _id: 0,
-                name: 1,
-                price: 1
-              }
-            }
+              $project: { _id: 0, name: 1, price: 1 },
+            },
           ],
-          as: "popularServices"
-        }
+          as: "popularServices",
+        },
       },
 
-      // ✅ Reviews Lookup (UPDATED FOR targetType + targetId)
+      // ✅ Reviews
       {
         $lookup: {
           from: "reviews",
@@ -94,43 +248,43 @@ export const getNearbySalons = async (req, res) => {
                 $expr: {
                   $and: [
                     { $eq: ["$targetId", "$$salonId"] },
-                    { $eq: ["$targetType", "Salon"] }
-                  ]
-                }
-              }
+                    { $eq: ["$targetType", "Salon"] },
+                  ],
+                },
+              },
             },
             {
               $group: {
                 _id: null,
                 avgRating: { $avg: "$rating" },
-                totalRatings: { $sum: 1 }
-              }
-            }
+                totalRatings: { $sum: 1 },
+              },
+            },
           ],
-          as: "ratingData"
-        }
+          as: "ratingData",
+        },
       },
 
-      // ✅ Add Rating Fields
       {
         $addFields: {
           avgRating: {
-            $ifNull: [{ $arrayElemAt: ["$ratingData.avgRating", 0] }, 0]
+            $ifNull: [{ $arrayElemAt: ["$ratingData.avgRating", 0] }, 0],
           },
           totalRatings: {
-            $ifNull: [{ $arrayElemAt: ["$ratingData.totalRatings", 0] }, 0]
-          }
-        }
+            $ifNull: [{ $arrayElemAt: ["$ratingData.totalRatings", 0] }, 0],
+          },
+        },
       },
 
-      // ✅ Sort by Nearest Only
+      // ❗ IMPORTANT: ensure nearest first
       { $sort: { distanceInMeters: 1 } },
+    ];
 
-      // ✅ Pagination
+    // ✅ DATA PIPELINE (with pagination)
+    const dataPipeline = [
+      ...basePipeline,
       { $skip: skip },
       { $limit: pageSize },
-
-      // ✅ Final Projection (Offer Removed)
       {
         $project: {
           _id: 1,
@@ -141,18 +295,32 @@ export const getNearbySalons = async (req, res) => {
           avgRating: { $round: ["$avgRating", 1] },
           totalRatings: 1,
           popularServices: 1,
-          offersHomeService: 1
-        }
-      }
+          offersHomeService: 1,
+        },
+      },
     ];
 
-    const salons = await Salon.aggregate(pipeline);
+    // ✅ COUNT PIPELINE (NO SKIP/LIMIT)
+    const countPipeline = [
+      ...basePipeline,
+      { $count: "total" },
+    ];
+
+    const [salons, countResult] = await Promise.all([
+      Salon.aggregate(dataPipeline),
+      Salon.aggregate(countPipeline),
+    ]);
+
+    const total = countResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / pageSize);
 
     return res.status(200).json({
       success: true,
       message: "Nearby salons fetched successfully",
       page: pageNumber,
       limit: pageSize,
+      total,
+      totalPages,
       count: salons.length,
       data: salons,
     });
