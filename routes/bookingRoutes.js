@@ -11,9 +11,21 @@ import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
-router.post("/create-booking", authenticate, createBooking);
-router.get("/get-my-bookings", authenticate, getBookingByUserId);
-router.get("/get-salon-bookings", authenticate, getBookingBySalonId);
+router.post("/create", authenticate, authorizeRoles("customer"), createBooking);
+// router.get("/get-my-bookings", authenticate, getBookingByUserId);
+// router.get("/get-salon-bookings", authenticate, getBookingBySalonId);
+
+
+/*
+  New Booking Api
+ */
+router.post(
+  "/create", 
+  authenticate, 
+  authorizeRoles("customer"), 
+  createBooking
+);
+
 
 /*
   Salon Owner + Independent Professional
