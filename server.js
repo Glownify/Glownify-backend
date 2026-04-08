@@ -34,7 +34,7 @@ app.use(helmet());
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
-app.use(rateLimiter);
+// app.use(rateLimiter);
 
 // Swagger UI (your external docs)
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerDocument));
