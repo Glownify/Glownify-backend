@@ -1,5 +1,5 @@
 import express from "express";
-// import { getSalonServiceItems } from "../controllers/serviceItemController.js";
+import { getSalonServiceItems } from "../controllers/serviceItemController.js";
 import { addServiceItem, getProviderServiceItems, getServiceItemById, updateServiceItem, deleteServiceItem } from "../controllers/serviceItemController.js";
 import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 
@@ -46,6 +46,13 @@ router.delete(
     authenticate,
     authorizeRoles("salon_owner", "independent_professional"),
     deleteServiceItem
+);
+
+
+// route to get service items by salon (for customers) - public API
+router.get(
+    "/salon/:salonId", 
+    getSalonServiceItems
 );
 
 export default router;

@@ -1146,3 +1146,48 @@ export const getSalonProfileDashboard = async (req, res) => {
     });
   }
 };
+
+
+
+// // controllers/serviceController.js
+// const ServiceItem = require("../models/ServiceItem"); // Aapka Service model
+
+// const getServiceItemsByCategory = async (req, res) => {
+//     try {
+//         const { salonId, categoryId } = req.params;
+
+//         // Salon aur Category ke basis par services dhundhna
+//         const services = await ServiceItem.find({ 
+//             salon: salonId, 
+//             category: categoryId 
+//         });
+
+//         if (!services) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "No services found for this category"
+//             });
+//         }
+
+//         // Frontend 'data.services' expect kar raha hai
+//         res.status(200).json({
+//             success: true,
+//             services: services 
+//         });
+
+//     } catch (error) {
+//         console.error("Error in getServiceItemsByCategory:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error"
+//         });
+//     }
+// };
+
+// module.exports = { getServiceItemsByCategory };
+
+
+
+
+
+// router.get("/get-serviceItems-by-category/:salonId/:categoryId", getServiceItemsByCategory);
