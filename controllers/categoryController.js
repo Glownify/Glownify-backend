@@ -1,4 +1,4 @@
-
+import mongoose from "mongoose";
 import ServiceCategory from "../models/ServiceCategory.js";
 import ServiceItem from "../models/ServiceItem.js";
 
@@ -147,42 +147,60 @@ export const getAllCategories = async (req, res) => {
 
 
 
-export const getServiceItemsBySalon = async (req, res) => {
+// Public API to get service categories offered by a specific salon (for customers) 
+export const getSalonServiceCategories = async (req, res) => {
   try {
     const { salonId } = req.params;
 
-    if (!salonId) {
-      return res.status(400).json({ message: "Salon ID is required" });
+    if (!mongoose.Types.ObjectId.isValid(salonId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid salon ID"
+      });
     }
 
-    const serviceItems = await ServiceItem.find({
-      providerId: salonId,
-      status: "active",
-    })
-      .populate("serviceCategory", "name")
-      .lean();
+    const categories = await ServiceItem.aggregate([
+      {
+        $match: {
+          providerId: new mongoose.Types.ObjectId(salonId),
+          providerType: "Salon",
+          status: "active"
+        }
+      },
+      {
+        $lookup: {
+          from: "servicecategories",
+          localField: "serviceCategory",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      { $unwind: "$category" },
 
-    const grouped = {};
+      {
+        $group: {
+          _id: "$category._id",
+          name: { $first: "$category.name" },
+          gender: { $first: "$category.gender" },
+          icon: { $first: "$category.icon" }
+        }
+      },
 
-    serviceItems.forEach((item) => {
-      const categoryName = item.serviceCategory?.name || "Uncategorized";
+      { $sort: { name: 1 } }
+    ]);
 
-      if (!grouped[categoryName]) {
-        grouped[categoryName] = {
-          category: categoryName,
-          items: [],
-        };
-      }
-
-      grouped[categoryName].items.push(item);
-    });
-
-    return res.status(200).json({
-      salonId,
-      categories: Object.values(grouped),
+    res.status(200).json({
+      success: true,
+      count: categories.length,
+      data: categories
     });
 
   } catch (error) {
-    return res.status(500).json({ message: "Server error" });
+    console.error("Category Fetch Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 };
+

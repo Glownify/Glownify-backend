@@ -19,6 +19,7 @@ const router = express.Router();
 
 //PUBLIC ROUTES
 router.get("/nearby", getNearbySalons);
+
 // Route to get basic salon details by id
 router.get("/:salonId", getSalonByID);
 

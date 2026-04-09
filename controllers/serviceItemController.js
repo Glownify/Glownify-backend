@@ -669,7 +669,7 @@ export const deleteServiceItem = async (req, res) => {
 
 
 
-// API for Get Service Items by Salon with AddOns (For Customers) - This is a public API, no authentication required
+// API for Get Service Items by Salon with AddOns (For Customers) - with filtering based on service category and service mode (home/ salon/ both)
 export const getSalonServiceItems = async (req, res) => {
   try {
     const { salonId } = req.params;
@@ -768,5 +768,49 @@ export const getSalonServiceItems = async (req, res) => {
       success: false,
       message: "Server Error",
     });
+  }
+};
+
+
+
+
+// API for Get Service Items by Salon with AddOns (For Customers) - This is a public API, no authentication required
+export const getAllServiceItemsBySalon = async (req, res) => {
+  try {
+    const { salonId } = req.params;
+
+    if (!salonId) {
+      return res.status(400).json({ message: "Salon ID is required" });
+    }
+
+    const serviceItems = await ServiceItem.find({
+      providerId: salonId,
+      status: "active",
+    })
+      .populate("serviceCategory", "name")
+      .lean();
+
+    const grouped = {};
+
+    serviceItems.forEach((item) => {
+      const categoryName = item.serviceCategory?.name || "Uncategorized";
+
+      if (!grouped[categoryName]) {
+        grouped[categoryName] = {
+          category: categoryName,
+          items: [],
+        };
+      }
+
+      grouped[categoryName].items.push(item);
+    });
+
+    return res.status(200).json({
+      salonId,
+      categories: Object.values(grouped),
+    });
+
+  } catch (error) {
+    return res.status(500).json({ message: "Server error" });
   }
 };
