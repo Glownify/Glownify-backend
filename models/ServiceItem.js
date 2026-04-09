@@ -10,7 +10,6 @@ const serviceItemSchema = new mongoose.Schema({
   description: { type: String },
   imageURL: String,
   status: { type: String, enum: ["active", "inactive"], default: "active" },
-   // 👇 NEW FIELD
   serviceMode: {
     type: String,
     enum: ["salon", "home", "both"],
@@ -31,7 +30,7 @@ const serviceItemSchema = new mongoose.Schema({
 serviceItemSchema.virtual("addOnDetails", {
   ref: "AddOn",
   localField: "_id",
-  foreignField: "serviceId",
+  foreignField: "serviceItemId",
 });
 
 serviceItemSchema.index({ providerId: 1, providerType: 1, status: 1 });

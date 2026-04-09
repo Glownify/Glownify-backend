@@ -215,6 +215,8 @@
 import Salon from "../models/Salon.js";
 import ServiceItem from "../models/ServiceItem.js";
 import IndependentProfessional from "../models/IndependentProfessional.js";
+import mongoose from "mongoose";
+import AddOn from "../models/AddOn.js";
 
 
 // API for Add Service Item (Salon Owner and Independent Professional)
@@ -660,6 +662,111 @@ export const deleteServiceItem = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error"
+    });
+  }
+};
+
+
+
+
+// API for Get Service Items by Salon with AddOns (For Customers) - This is a public API, no authentication required
+export const getSalonServiceItems = async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { serviceCategoryId, serviceMode } = req.query;
+
+    //  Validation
+    if (!salonId || !serviceCategoryId || !serviceMode) {
+      return res.status(400).json({
+        success: false,
+        message: "salonId, serviceCategoryId and serviceMode are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(salonId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid salon ID",
+      });
+    }
+
+    // Check salon exists
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found",
+      });
+    }
+
+    // Step 1: Fetch Services (FILTERED)
+    const services = await ServiceItem.find({
+      providerId: salonId,
+      providerType: "Salon",
+      serviceCategory: serviceCategoryId,
+      status: "active",
+      serviceMode: { $in: [serviceMode, "both"] },
+    })
+      .populate({
+          path: "addOnDetails",
+          select: "name price duration imageURL isRecommended"
+        })
+      .select("name price durationMins description imageURL serviceMode")
+      .lean();
+
+    const serviceIds = services.map((s) => s._id);
+
+    // Step 2: Fetch AddOns
+    const addons = await AddOn.find({
+      serviceItemId: { $in: serviceIds },
+    })
+      .select("name price duration imageURL isRecommended serviceItemId")
+      .lean();
+
+    // Step 3: Map Addons → service wise
+    const addonMap = {};
+
+    addons.forEach((addon) => {
+      const key = addon.serviceItemId.toString();
+
+      if (!addonMap[key]) {
+        addonMap[key] = [];
+      }
+
+      addonMap[key].push({
+        _id: addon._id,
+        name: addon.name,
+        price: addon.price,
+        duration: addon.duration,
+        imageURL: addon.imageURL,
+        isRecommended: addon.isRecommended,
+      });
+    });
+
+    // Step 4: Final Response
+    const formattedServices = services.map((service) => ({
+      _id: service._id,
+      name: service.name,
+      description: service.description,
+      price: service.price,
+      durationMins: service.durationMins,
+      imageURL: service.imageURL,
+      serviceMode: service.serviceMode,
+      addons: service.addOnDetails || [], // important
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: formattedServices.length,
+      data: formattedServices,
+    });
+
+  } catch (error) {
+    console.error("Get Salon Services Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
     });
   }
 };
