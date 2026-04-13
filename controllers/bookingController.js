@@ -274,16 +274,22 @@ export const getBookingsByProvider = async (req, res) => {
       .populate("customer", "name phone")
       .populate("specialist", "name")
       .populate("serviceItems.service", "name price")
-      .populate("addons.addon", "name price")
+      .populate({
+        path: "serviceItems.addons.addon",
+        select: "name price duration imageURL isRecommended"
+      })
       .sort({ bookingDate: -1 })
       .skip(skip)
       .limit(Number(limit));
 
     const totalBookings = await Booking.countDocuments(filter);
 
+    const pendingCount = await Booking.countDocuments({ providerId, status: "pending" });
+
     res.status(200).json({
       success: true,
       totalBookings,
+      pendingCount,
       currentPage: Number(page),
       totalPages: Math.ceil(totalBookings / limit),
       bookings
