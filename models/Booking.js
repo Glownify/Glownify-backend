@@ -45,7 +45,7 @@ const bookingSchema = new mongoose.Schema(
           {
             addon: { 
               type: mongoose.Schema.Types.ObjectId, 
-              ref: "AddOns"
+              ref: "AddOn"
             },
             quantity: Number,
             price: Number
