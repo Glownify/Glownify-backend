@@ -31,6 +31,13 @@ export const getSalonOwnerDashboard = async (req, res) => {
         const todayEnd = new Date();
         todayEnd.setHours(23, 59, 59, 999);
 
+        const bookingFilter = {
+            $or: [
+                { providerId: salonId, providerType: "Salon" },
+                { salon: salonId }
+            ]
+        };
+
         const [
         bookedToday,
         pendingBookings,
@@ -41,29 +48,29 @@ export const getSalonOwnerDashboard = async (req, res) => {
 
         // booked today
         Booking.countDocuments({
-            salon: salonId,
+            ...bookingFilter,
             status: "confirmed",
             bookingDate: { $gte: todayStart, $lte: todayEnd }
         }),
 
         // pending requests
         Booking.countDocuments({
-            salon: salonId,
+            ...bookingFilter,
             status: "pending"
         }),
 
         // unique customers
-        Booking.distinct("user", {
-            salon: salonId,
+        Booking.distinct("customer", {
+            ...bookingFilter,
             status: "confirmed"
         }),
 
         // recent bookings
-        Booking.find({ salon: salonId })
+        Booking.find(bookingFilter)
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate("user", "name phone")
-            .select("status bookingDate user"),
+            .populate("customer", "name phone")
+            .select("status bookingDate customer"),
 
         // ✅ Correct reviews query
             Review.find({
