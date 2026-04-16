@@ -6,7 +6,7 @@ const independentSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
     experienceYears: Number,
-    serviceTypes: [String],
+    // serviceTypes: [String],
     specializations: [{ type: mongoose.Schema.Types.ObjectId, ref: "ServiceCategory" }],
 
     // targetGender is describes the primary audience of the independent professional, not the gender of the professional themselves.
