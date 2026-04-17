@@ -403,15 +403,15 @@ export const signupIndependentPro = async (req, res) => {
   try {
     const { name, email, phone, password, gender, role, independentData } = req.body;
 
-    console.log("Received body:", {
-      name: !!name,
-      email: !!email,
-      phone: !!phone,
-      password: !!password,
-      gender: !!gender,
-      role: !!role,
-      independentData: !!independentData,
-    });
+    // console.log("Received body:", {
+    //   name: !!name,
+    //   email: !!email,
+    //   phone: !!phone,
+    //   password: !!password,
+    //   gender: !!gender,
+    //   role: !!role,
+    //   independentData: !!independentData,
+    // });
 
     // ===============================
     // BASIC VALIDATION
@@ -528,9 +528,34 @@ export const signupIndependentPro = async (req, res) => {
       }
     }
 
+    // Upload profile photo if provided as multipart file
+    let profilePhotoUrl = null;
+    if (req.files?.profilePhoto?.length > 0) {
+      try {
+        const uploadedProfilePhoto = await uploadToCloudinary(req.files.profilePhoto, "glownify/profile_photos");
+        profilePhotoUrl = uploadedProfilePhoto[0]?.secure_url;
+      } catch (uploadError) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Profile photo upload failed:", uploadError);
+        return res.status(400).json({
+          message: "Failed to upload profile photo",
+          error: uploadError.message,
+        });
+      }
+    }
+
     // ===============================
     // REQUIRED FIELD VALIDATION
     // ===============================
+    if (!profilePhotoUrl) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: "Profile photo is required",
+      });
+    }
+
     if (experienceYears === undefined) {
       await session.abortTransaction();
       session.endSession();
@@ -627,6 +652,7 @@ export const signupIndependentPro = async (req, res) => {
           password,
           gender,
           role,
+          profilePhoto: profilePhotoUrl,
         },
       ],
       { session }

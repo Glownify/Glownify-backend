@@ -71,6 +71,8 @@ const userSchema = new mongoose.Schema(
 
     isVerified: { type: Boolean, default: false },
 
+    profilePhoto: String,
+
     /* ---------------- PASSWORD RESET ---------------- */
     resetPasswordOTP: String,
     resetPasswordExpire: Date,
