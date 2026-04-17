@@ -38,8 +38,9 @@ export const uploadSalonOwnerFiles = uploadMiddleware.fields([
   { name: "governmentIdImage", maxCount: 1 },
 ]);
 
-// Middleware for independent pro uploads (government ID image + work photos)
+// Middleware for independent pro uploads (profile photo + government ID image + work photos)
 export const uploadIndependentProFiles = uploadMiddleware.fields([
+  { name: "profilePhoto", maxCount: 1 },
   { name: "governmentIdImage", maxCount: 1 },
   { name: "workPhotos", maxCount: 10 },
 ]);
