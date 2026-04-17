@@ -16,7 +16,6 @@ const independentSchema = new mongoose.Schema(
       required: true,
     },
 
-    profilePhoto: String,
     workPhotos: [String],
 
     location: {
