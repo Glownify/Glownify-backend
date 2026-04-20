@@ -42,7 +42,6 @@ export const getSalonOwnerDashboard = async (req, res) => {
         bookedToday,
         pendingBookings,
         uniqueCustomers,
-        totalBookings,
         recentBookings,
         recentReviews
         ] = await Promise.all([
@@ -65,9 +64,6 @@ export const getSalonOwnerDashboard = async (req, res) => {
             ...bookingFilter,
             status: "confirmed"
         }),
-
-        // total bookings count
-        Booking.countDocuments(bookingFilter),
 
         // recent bookings
         Booking.find(bookingFilter)
@@ -101,13 +97,7 @@ export const getSalonOwnerDashboard = async (req, res) => {
             pendingBookings,
             totalCustomers: uniqueCustomers.length
             },
-            recentBookings: {
-                totalBookings,
-                pendingCount: pendingBookings,
-                currentPage: 1,
-                totalPages: Math.ceil(totalBookings / 5),
-                bookings: recentBookings
-            },
+            recentBookings,
             recentReviews
         }
         });
