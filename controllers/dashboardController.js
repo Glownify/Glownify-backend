@@ -67,16 +67,21 @@ export const getSalonOwnerDashboard = async (req, res) => {
 
         // recent bookings
         Booking.find(bookingFilter)
-            .sort({ createdAt: -1 })
+            .sort({ bookingDate: -1 })
             .limit(5)
             .populate("customer", "name phone")
-            .select("status bookingDate customer"),
+            .populate("specialist", "name")
+            .populate("serviceItems.service", "name price")
+            .populate({
+                path: "serviceItems.addons.addon",
+                select: "name price duration imageURL isRecommended"
+            }),
 
-        // ✅ Correct reviews query
-            Review.find({
+        // reviews
+        Review.find({
             targetType: "Salon",
             targetId: salonId
-            })
+        })
             .sort({ createdAt: -1 })
             .limit(5)
             .populate("user", "name")
