@@ -42,6 +42,7 @@ export const getSalonOwnerDashboard = async (req, res) => {
         bookedToday,
         pendingBookings,
         uniqueCustomers,
+        totalBookings,
         recentBookings,
         recentReviews
         ] = await Promise.all([
@@ -65,18 +66,26 @@ export const getSalonOwnerDashboard = async (req, res) => {
             status: "confirmed"
         }),
 
+        // total bookings count
+        Booking.countDocuments(bookingFilter),
+
         // recent bookings
         Booking.find(bookingFilter)
-            .sort({ createdAt: -1 })
+            .sort({ bookingDate: -1 })
             .limit(5)
             .populate("customer", "name phone")
-            .select("status bookingDate customer"),
+            .populate("specialist", "name")
+            .populate("serviceItems.service", "name price")
+            .populate({
+                path: "serviceItems.addons.addon",
+                select: "name price duration imageURL isRecommended"
+            }),
 
-        // ✅ Correct reviews query
-            Review.find({
+        // reviews
+        Review.find({
             targetType: "Salon",
             targetId: salonId
-            })
+        })
             .sort({ createdAt: -1 })
             .limit(5)
             .populate("user", "name")
@@ -92,7 +101,13 @@ export const getSalonOwnerDashboard = async (req, res) => {
             pendingBookings,
             totalCustomers: uniqueCustomers.length
             },
-            recentBookings,
+            recentBookings: {
+                totalBookings,
+                pendingCount: pendingBookings,
+                currentPage: 1,
+                totalPages: Math.ceil(totalBookings / 5),
+                bookings: recentBookings
+            },
             recentReviews
         }
         });
