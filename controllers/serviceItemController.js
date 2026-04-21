@@ -217,6 +217,7 @@ import ServiceItem from "../models/ServiceItem.js";
 import IndependentProfessional from "../models/IndependentProfessional.js";
 import mongoose from "mongoose";
 import AddOn from "../models/AddOn.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 
 // API for Add Service Item (Salon Owner and Independent Professional)
@@ -241,13 +242,12 @@ export const addServiceItem = async (req, res) => {
       durationMins,
       discountPercent,
       description,
-      imageURL,
       serviceMode,
       addOns
     } = req.body;
 
     // basic validation
-    if (!name || !serviceCategory || !price || !serviceMode) {
+    if (!name || !serviceCategory || !price || !serviceMode || !durationMins) {
       return res.status(400).json({
         success: false,
         message: "Required fields missing"
@@ -266,6 +266,23 @@ export const addServiceItem = async (req, res) => {
         success: false,
         message: "Service already exists in this salon"
       });
+    }
+
+    // Handle image upload to Cloudinary
+    let imageURL = null;
+    if (req.file) {
+      try {
+        const uploadResults = await uploadToCloudinary([req.file], "glownify/services");
+        if (uploadResults && uploadResults.length > 0) {
+          imageURL = uploadResults[0].secure_url;
+        }
+      } catch (uploadError) {
+        console.error("Cloudinary upload error:", uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload image to Cloudinary"
+        });
+      }
     }
 
     const service = await ServiceItem.create({
