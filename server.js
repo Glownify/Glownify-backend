@@ -33,7 +33,29 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet());
 app.use(cors());
 app.use(morgan("dev"));
-app.use(express.json());
+
+// ✅ Configure express.json() - skip GET requests and handle errors gracefully
+app.use(express.json({
+  strict: false,
+  limit: '10mb'
+}));
+
+// ✅ Error handler for JSON parsing errors (Unexpected end of JSON input, etc)
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    // Allow GET requests to pass through even if JSON parsing fails
+    if (req.method === 'GET' || req.method === 'DELETE') {
+      req.body = {};
+      return next();
+    }
+    return res.status(400).json({
+      success: false,
+      message: "Invalid JSON in request body"
+    });
+  }
+  next(err);
+});
+
 // app.use(rateLimiter);
 
 // Swagger UI (your external docs)
