@@ -1,216 +1,3 @@
-// import Salon from "../models/Salon.js";
-// import ServiceItem from "../models/ServiceItem.js";
-// import mongoose from "mongoose";
-
-// export const createServiceItem = async (req, res) => {
-//   try {
-//     const userId = req.userId;
-//     const salon = await Salon.findOne({ owner: userId });
-//     if (!salon) {
-//       return res.status(404).json({ success: false, message: "Salon not found" });
-//     }
-//     const { name, category, price, durationMins, discountPercent, description, serviceMode, image, providerType, addOns } = req.body;
-    
-//     if(!name || !category || !price || !durationMins || !providerType || !serviceMode){
-//       return  res.status(400).json({ success: false, message: "Missing required fields" });
-//     }
-
-//     const newService = {
-//       name,
-//       category,
-//       price,
-//       durationMins,
-//       discountPercent,
-//       description,
-//       serviceMode,
-//       image,
-//       providerType,
-//       providerId: salon._id,
-//       addOns: addOns || []
-//     };
-//     await ServiceItem.create(newService);
-//     res.status(201).json({ success: true, message: "Service created successfully", service: newService });
-//   } catch (error) {
-//     console.error("Error creating service:", error);
-//     res.status(500).json({ success: false, message: "Server error while creating service", error: error.message });
-//   }
-// };
-
-// export const updateServiceItem = async (req, res) => {
-//   try {
-//     const userId = req.userId;
-//     const salon = await Salon.findOne({ owner: userId });
-//     if (!salon) {
-//       return res.status(404).json({ success: false, message: "Salon not found" });
-//     }
-//     const { serviceId } = req.params;
-//     const updateData = req.body;
-
-//     const service = await ServiceItem.findOneAndUpdate(
-//       { _id: serviceId, providerId: salon._id },
-//       { $set: updateData },
-//       { new: true }
-//     );
-
-//     if (!service) {
-//       return res.status(404).json({ success: false, message: "Service not found" });
-//     }
-
-//     res.status(200).json({ success: true, message: "Service updated successfully", service });
-//   } catch (error) {
-//     console.error("Error updating service:", error);
-//     res.status(500).json({ success: false, message: "Server error while updating service", error: error.message });
-//   }
-// };
-
-// export const deleteServiceItem = async (req, res) => {
-//   try {
-//     const userId = req.userId;
-//     const salon = await Salon.findOne({ owner: userId });
-//     if (!salon) {
-//       return res.status(404).json({ success: false, message: "Salon not found" });
-//     }
-//     const { serviceId } = req.params;
-
-//     const service = await ServiceItem.findOneAndDelete({ _id: serviceId, providerId: salon._id });
-//     if (!service) {
-//       return res.status(404).json({ success: false, message: "Service not found" });
-//     }
-
-//     res.status(200).json({ success: true, message: "Service deleted successfully", service });
-//   } catch (error) {
-//     console.error("Error deleting service:", error);
-//     res.status(500).json({ success: false, message: "Server error while deleting service", error: error.message });
-//   }
-// };
-
-
-// export const getServiceItemsBySalon = async (req, res) => {
-//   try {
-//     const userId = req.userId;
-//     const salon = await Salon.findOne({ owner: userId });
-//     if (!salon) {
-//       return res.status(404).json({ success: false, message: "Salon not found" });
-//     }
-//     const services = await ServiceItem.find({ providerId: salon._id }).populate("category").lean();
-//     res.status(200).json({ success: true, services });
-//   } catch (error) {
-//     console.error("Error fetching services:", error);
-//     res.status(500).json({ success: false, message: "Server error while fetching services", error: error.message });
-//   }
-// };
-
-
-// export const getServiceItemsByCategory = async (req, res) => {
-//   console.log("Fetching services for user:", req.params);
-//   try {
-//     const { salonId, categoryId } = req.params;
-//     const salon = await Salon.findById(salonId);
-//     if (!salon) {
-//       return res.status(404).json({ success: false, message: "Salon not found" });
-//     }
-//     const services = await ServiceItem.find({ providerId: salon._id, category: categoryId }).lean();
-//     res.status(200).json({ success: true, services });
-//     console.log("Services fetched successfully for user:", services);
-//   } catch (error) {
-//     console.error("Error fetching services:", error);
-//     res.status(500).json({ success: false, message: "Server error while fetching services", error: error.message });
-//   }
-// };
-
-
-
-// // API to get all service items of a salon grouped by category
-// import SubService from "../models/SubService.js";
-// export const getSalonServiceItems = async (req, res) => {
-//   try {
-//     const { salonId } = req.params;
-//     const { serviceCategoryId, serviceMode } = req.query;
-
-//     // 🔎 Validation
-//     if (!salonId || !serviceCategoryId || !serviceMode) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "salonId, serviceCategoryId and serviceMode are required",
-//       });
-//     }
-
-//     if (!mongoose.Types.ObjectId.isValid(salonId)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid salon ID",
-//       });
-//     }
-
-//     // 🔥 Step 1: Fetch Service Items
-//     const serviceItems = await ServiceItem.find({
-//       providerId: salonId,
-//       providerType: "Salon", // fixed
-//       serviceCategory: serviceCategoryId,
-//       status: "active",
-//       serviceMode: { $in: [serviceMode, "both"] },
-//     })
-//       .populate("serviceCategory", "name")
-//       .lean();
-
-//     const serviceIds = serviceItems.map(item => item._id);
-
-//     // 🔥 Step 2: Fetch SubServices
-//     const subServices = await SubService.find({
-//       serviceItem: { $in: serviceIds },
-//       status: "active",
-//     }).lean();
-
-//     // 🔥 Step 3: Map SubServices
-//     const subServiceMap = {};
-//     subServices.forEach(sub => {
-//       if (!subServiceMap[sub.serviceItem]) {
-//         subServiceMap[sub.serviceItem] = [];
-//       }
-
-//       subServiceMap[sub.serviceItem].push({
-//         _id: sub._id,
-//         name: sub.name,
-//         price: sub.price,
-//         durationMins: sub.durationMins,
-//         imageURL: sub.imageURL,
-//         description: sub.description,
-//       });
-//     });
-
-//     // 🔥 Step 4: Final Response Structure
-//     const formattedServices = serviceItems.map(item => ({
-//       _id: item._id,
-//       name: item.name,
-//       description: item.description,
-//       price: item.price,
-//       durationMins: item.durationMins,
-//       imageURL: item.imageURL,
-//       status: item.status,
-//       serviceMode: item.serviceMode,
-//       subServices: subServiceMap[item._id] || [],
-//     }));
-
-//     return res.status(200).json({
-//       success: true,
-//       serviceData: {
-//         category: serviceItems[0]?.serviceCategory?.name || null,
-//         services: formattedServices,
-//       },
-//     });
-
-//   } catch (error) {
-//     console.error("Error fetching salon services:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//     });
-//   }
-// };
-
-
-
-
 // new code according to new requirements and frontend needs
 import Salon from "../models/Salon.js";
 import ServiceItem from "../models/ServiceItem.js";
@@ -318,63 +105,6 @@ export const addServiceItem = async (req, res) => {
 
 
 
-// API for Get Service Items (Salon Owner and Independent Professional)
-// export const getProviderServiceItems = async (req, res) => {
-//   try {
-
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const skip = (page - 1) * limit;
-
-//     let providerId;
-
-//     // ✅ If Salon Owner
-//     if (req.user.role === "salon_owner") {
-
-//       const salon = await Salon.findOne({ owner: req.userId });
-
-//       if (!salon) {
-//         return res.status(404).json({
-//           success: false,
-//           message: "Salon not found for this owner"
-//         });
-//       }
-
-//       providerId = salon._id;
-//     }
-
-//     // ✅ If Independent Professional
-//     if (req.user.role === "independent_pro") {
-//       providerId = req.userId;
-//     }
-
-//     // Step 2: get service items
-//     const serviceItems = await ServiceItem.find({ providerId })
-//       .skip(skip)
-//       .limit(limit)
-//       .sort({ createdAt: -1 });
-
-//     const total = await ServiceItem.countDocuments({ providerId });
-
-//     res.status(200).json({
-//       success: true,
-//       page,
-//       limit,
-//       total,
-//       totalPages: Math.ceil(total / limit),
-//       data: serviceItems
-//     });
-
-//   } catch (error) {
-//     console.error("Get Service Items Error:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Server Error"
-//     });
-//   }
-// };
-
 // API for Get Service Items by Provider (Salon Owner and Independent Professional) with gender based filtering for independent professionals
 export const getProviderServiceItems = async (req, res) => {
   try {
@@ -448,7 +178,8 @@ export const getProviderServiceItems = async (req, res) => {
         }
       },
 
-      { $sort: { createdAt: -1 } },
+      // ✅ Sort: Active items first, then by creation date (newest first)
+      { $sort: { status: 1, createdAt: -1 } },
 
       {
         $facet: {
@@ -559,7 +290,7 @@ export const updateServiceItem = async (req, res) => {
     }
 
     // independent professional
-    if (req.user.role === "independent_pro") {
+    if (req.user.role === "independent_professional") {
       
       const independentPro = await IndependentProfessional.findOne({ user: req.userId });
 
@@ -581,24 +312,97 @@ export const updateServiceItem = async (req, res) => {
       });
     }
 
+    // ✅ Handle image file upload to Cloudinary
+    if (req.files && req.files.file && req.files.file.length > 0) {
+      try {
+        const uploadResult = await uploadToCloudinary([req.files.file[0]], "glownify/service-items");
+        if (uploadResult.length > 0) {
+          serviceItem.imageURL = uploadResult[0].secure_url;
+        }
+      } catch (uploadError) {
+        console.error("Image upload error:", uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload image"
+        });
+      }
+    }
+
     // update allowed fields
-    const { name, description, price, durationMins, status, imageURL, serviceMode, discountPercent } = req.body;
+    const { name, description, price, durationMins, status, serviceMode, discountPercent, addOns } = req.body;
 
     if (name !== undefined) serviceItem.name = name;
     if (description !== undefined) serviceItem.description = description;
     if (price !== undefined) serviceItem.price = price;
     if (durationMins !== undefined) serviceItem.durationMins = durationMins;
     if (status !== undefined) serviceItem.status = status;
-    if (imageURL !== undefined) serviceItem.imageURL = imageURL;
     if (serviceMode !== undefined) serviceItem.serviceMode = serviceMode;
     if (discountPercent !== undefined) serviceItem.discountPercent = discountPercent;
 
     await serviceItem.save();
 
+    // ✅ Handle addOns update with image uploads
+    // Parse addOns if it's a JSON string
+    let parsedAddOns = [];
+    if (addOns) {
+      try {
+        parsedAddOns = typeof addOns === 'string' ? JSON.parse(addOns) : addOns;
+      } catch (parseError) {
+        console.error("Error parsing addOns:", parseError);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid addOns format. Must be valid JSON."
+        });
+      }
+    }
+
+    if (parsedAddOns && Array.isArray(parsedAddOns) && parsedAddOns.length > 0) {
+      // Delete existing addons for this service item
+      await AddOn.deleteMany({ serviceItemId: id });
+
+      // Upload addon images to Cloudinary
+      let addonImages = [];
+      if (req.files && req.files.addonImages && req.files.addonImages.length > 0) {
+        try {
+          addonImages = await uploadToCloudinary(req.files.addonImages, "glownify/addons");
+        } catch (uploadError) {
+          console.error("AddOn image upload error:", uploadError);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to upload addon images"
+          });
+        }
+      }
+
+      // Create new addons with uploaded image URLs
+      const newAddOns = parsedAddOns.map((addon, index) => ({
+        name: addon.name,
+        serviceItemId: id,
+        price: addon.price,
+        duration: addon.duration || 0,
+        // Use uploaded image if available, otherwise use provided URL
+        imageURL: addonImages[index] ? addonImages[index].secure_url : (addon.imageURL || ""),
+        isRecommended: addon.isRecommended || false,
+        providerType: serviceItem.providerType,
+        providerId: providerId
+      }));
+
+      if (newAddOns.length > 0) {
+        await AddOn.insertMany(newAddOns);
+      }
+    }
+
+    // ✅ Fetch updated service item with addOns
+    const updatedServiceItem = await ServiceItem.findById(id);
+    const addOnDetails = await AddOn.find({ serviceItemId: id });
+
     res.status(200).json({
       success: true,
       message: "Service item updated successfully",
-      data: serviceItem
+      data: {
+        ...updatedServiceItem.toObject(),
+        addOns: addOnDetails
+      }
     });
 
   } catch (error) {

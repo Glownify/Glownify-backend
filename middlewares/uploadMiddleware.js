@@ -45,4 +45,10 @@ export const uploadIndependentProFiles = uploadMiddleware.fields([
   { name: "workPhotos", maxCount: 10 },
 ]);
 
+// Middleware for service item update (service image + addon images)
+export const uploadServiceItemFiles = uploadMiddleware.fields([
+  { name: "file", maxCount: 1 },
+  { name: "addonImages", maxCount: 10 },
+]);
+
 export default uploadMiddleware;

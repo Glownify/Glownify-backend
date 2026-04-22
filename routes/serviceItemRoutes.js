@@ -3,7 +3,7 @@ import { getSalonServiceItems } from "../controllers/serviceItemController.js";
 import { addServiceItem, getProviderServiceItems, getServiceItemById, updateServiceItem, deleteServiceItem } from "../controllers/serviceItemController.js";
 import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 import { getAllServiceItemsBySalon } from "../controllers/serviceItemController.js";
-import { uploadSingleFile } from "../middlewares/uploadMiddleware.js";
+import { uploadSingleFile, uploadServiceItemFiles } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -40,6 +40,7 @@ router.patch(
     "/:id",
     authenticate,
     authorizeRoles("salon_owner", "independent_professional"),
+    uploadServiceItemFiles,
     updateServiceItem
 );
 
