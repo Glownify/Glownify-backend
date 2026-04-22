@@ -438,6 +438,16 @@ export const getProviderServiceItems = async (req, res) => {
       // 🔥 Optional gender filter
       ...(gender ? [{ $match: { "category.gender": gender } }] : []),
 
+      // ✅ Lookup AddOns for this service item
+      {
+        $lookup: {
+          from: "addons",
+          localField: "_id",
+          foreignField: "serviceItemId",
+          as: "addOns"
+        }
+      },
+
       { $sort: { createdAt: -1 } },
 
       {
