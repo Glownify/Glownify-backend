@@ -329,7 +329,7 @@ export const updateServiceItem = async (req, res) => {
     }
 
     // update allowed fields
-    const { name, description, price, durationMins, status, serviceMode, discountPercent, addOns } = req.body;
+    const { name, description, price, durationMins, status, serviceMode, discountPercent, serviceCategory, addOns } = req.body;
 
     if (name !== undefined) serviceItem.name = name;
     if (description !== undefined) serviceItem.description = description;
@@ -338,6 +338,7 @@ export const updateServiceItem = async (req, res) => {
     if (status !== undefined) serviceItem.status = status;
     if (serviceMode !== undefined) serviceItem.serviceMode = serviceMode;
     if (discountPercent !== undefined) serviceItem.discountPercent = discountPercent;
+    if (serviceCategory !== undefined) serviceItem.serviceCategory = serviceCategory;
 
     await serviceItem.save();
 
@@ -357,8 +358,15 @@ export const updateServiceItem = async (req, res) => {
     }
 
     if (parsedAddOns && Array.isArray(parsedAddOns) && parsedAddOns.length > 0) {
-      // Delete existing addons for this service item
-      await AddOn.deleteMany({ serviceItemId: id });
+      // Get existing addons for this service item
+      const existingAddOns = await AddOn.find({ serviceItemId: id });
+      const existingAddOnIds = new Set(parsedAddOns.filter(a => a._id).map(a => a._id));
+
+      // Delete addons that are no longer in the list
+      await AddOn.deleteMany({
+        serviceItemId: id,
+        _id: { $nin: Array.from(existingAddOnIds) }
+      });
 
       // Upload addon images to Cloudinary
       let addonImages = [];
@@ -374,21 +382,53 @@ export const updateServiceItem = async (req, res) => {
         }
       }
 
-      // Create new addons with uploaded image URLs
-      const newAddOns = parsedAddOns.map((addon, index) => ({
-        name: addon.name,
-        serviceItemId: id,
-        price: addon.price,
-        duration: addon.duration || 0,
-        // Use uploaded image if available, otherwise use provided URL
-        imageURL: addonImages[index] ? addonImages[index].secure_url : (addon.imageURL || ""),
-        isRecommended: addon.isRecommended || false,
-        providerType: serviceItem.providerType,
-        providerId: providerId
-      }));
+      let imageIndex = 0;
 
-      if (newAddOns.length > 0) {
-        await AddOn.insertMany(newAddOns);
+      // Process each addon
+      for (let i = 0; i < parsedAddOns.length; i++) {
+        const addon = parsedAddOns[i];
+
+        if (addon._id) {
+          // ✅ Update existing addon
+          const existingAddon = existingAddOns.find(a => a._id.toString() === addon._id.toString());
+          if (existingAddon) {
+            existingAddon.name = addon.name;
+            existingAddon.price = addon.price;
+            existingAddon.duration = addon.duration || 0;
+            existingAddon.isRecommended = addon.isRecommended || false;
+
+            // Handle image update
+            if (addon.imageAction === "remove") {
+              // Remove image
+              existingAddon.imageURL = "";
+            } else if (addon.imageAction === "update" && imageIndex < addonImages.length) {
+              // Update with new image
+              existingAddon.imageURL = addonImages[imageIndex].secure_url;
+              imageIndex++;
+            }
+            // If imageAction is "keep" or not specified, keep existing image
+
+            await existingAddon.save();
+          }
+        } else {
+          // ✅ Create new addon
+          let newAddonImageURL = "";
+          if (imageIndex < addonImages.length) {
+            newAddonImageURL = addonImages[imageIndex].secure_url;
+            imageIndex++;
+          }
+
+          const newAddon = await AddOn.create({
+            name: addon.name,
+            serviceItemId: id,
+            price: addon.price,
+            duration: addon.duration || 0,
+            imageURL: newAddonImageURL,
+            isRecommended: addon.isRecommended || false,
+            providerType: serviceItem.providerType,
+            providerId: providerId
+          });
+        }
       }
     }
 
