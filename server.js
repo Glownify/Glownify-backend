@@ -26,6 +26,7 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import salonRoutes from './routes/salonRoutes.js';
 import serviceItemRoutes from './routes/serviceItemRoutes.js';
 import specialistRoutes from './routes/specialistRoute.js';
+import offerRoutes from './routes/offerRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -90,6 +91,7 @@ app.use('/api/v1/specialists', specialistRoutes);
 app.use('/api/v1/state-city', stateCityRoutes);
 app.use('/api/v1/sales-executive', salesExecutiveRoutes);
 app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/offers', offerRoutes);
 
 
 app.use((req, res) => {

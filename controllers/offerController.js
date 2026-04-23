@@ -1,7 +1,31 @@
 import Offer from "../models/Offer.js";
+import Salon from "../models/Salon.js";
+import IndependentProfessional from "../models/IndependentProfessional.js";
+
+// Helper to get providerId and providerType from logged in user
+const getProviderInfo = async (user) => {
+  if (user.role === "salon_owner") {
+    const salon = await Salon.findOne({ owner: user._id });
+    if (!salon) return null;
+    return { providerId: salon._id, providerType: "Salon" };
+  }
+
+  if (user.role === "independent_professional") {
+    const independent = await IndependentProfessional.findOne({ user: user._id });
+    if (!independent) return null;
+    return { providerId: independent._id, providerType: "IndependentProfessional" };
+  }
+
+  return null;
+};
 
 export const createOffer = async (req, res) => {
   try {
+    const provider = await getProviderInfo(req.user);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: "Provider not found" });
+    }
+
     const {
       title,
       description,
@@ -13,32 +37,16 @@ export const createOffer = async (req, res) => {
       category,
     } = req.body;
 
-    // Validate required fields
-    if (
-      !title ||
-      !description ||
-      !discountType ||
-      !discountValue ||
-      !minBookingAmount ||
-      !code ||
-      !validUntil ||
-      !category
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All required fields must be provided." });
+    if (!title || !description || !discountType || !discountValue || !minBookingAmount || !code || !validUntil || !category) {
+      return res.status(400).json({ success: false, message: "All required fields must be provided." });
     }
 
-    // Check for duplicate offer code
     const existingOffer = await Offer.findOne({ code: { $regex: new RegExp(`^${code}$`, "i") } });
     if (existingOffer) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Offer code already exists. Use a unique code." });
+      return res.status(400).json({ success: false, message: "Offer code already exists. Use a unique code." });
     }
 
-    // Create new offer
-    const newOffer = new Offer({
+    const newOffer = await Offer.create({
       title,
       description,
       discountType,
@@ -47,15 +55,11 @@ export const createOffer = async (req, res) => {
       code,
       validUntil,
       category,
+      providerId: provider.providerId,
+      providerType: provider.providerType,
     });
 
-    await newOffer.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Offer created successfully!",
-      offer: newOffer,
-    });
+    res.status(201).json({ success: true, message: "Offer created successfully!", offer: newOffer });
   } catch (error) {
     console.error("Error creating offer:", error);
     res.status(500).json({ success: false, message: "Server error while creating offer." });
@@ -64,57 +68,55 @@ export const createOffer = async (req, res) => {
 
 export const getAllOffers = async (req, res) => {
   try {
-    const offers = await Offer.find().lean();
+    const provider = await getProviderInfo(req.user);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: "Provider not found" });
+    }
+
+    const offers = await Offer.find({ providerId: provider.providerId }).lean();
     res.status(200).json({ success: true, message: "Offers fetched successfully", offers });
   } catch (error) {
-    // console.error("Error fetching offers:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching offers",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Server error while fetching offers", error: error.message });
   }
 };
 
 export const deleteOffer = async (req, res) => {
   try {
+    const provider = await getProviderInfo(req.user);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: "Provider not found" });
+    }
+
     const { offerId } = req.params;
-    const offer = await Offer.findByIdAndDelete(offerId);
+    const offer = await Offer.findOne({ _id: offerId, providerId: provider.providerId });
+
     if (!offer) {
       return res.status(404).json({ success: false, message: "Offer not found" });
     }
+
+    await offer.deleteOne();
     res.status(200).json({ success: true, message: "Offer deleted successfully", offer });
   } catch (error) {
-    // console.error("Error deleting offer:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while deleting offer",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Server error while deleting offer", error: error.message });
   }
 };
 
-
 export const updateOffer = async (req, res) => {
   try {
-    const { offerId } = req.params;
-    const {
-      title,
-      description,
-      discountType,
-      discountValue,
-      minBookingAmount,
-      code,
-      validUntil,
-      category,
-    } = req.body;
+    const provider = await getProviderInfo(req.user);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: "Provider not found" });
+    }
 
-    const offer = await Offer.findById(offerId);
+    const { offerId } = req.params;
+    const offer = await Offer.findOne({ _id: offerId, providerId: provider.providerId });
+
     if (!offer) {
       return res.status(404).json({ success: false, message: "Offer not found." });
     }
 
-    // Update fields if provided
+    const { title, description, discountType, discountValue, minBookingAmount, code, validUntil, category } = req.body;
+
     offer.title = title || offer.title;
     offer.description = description || offer.description;
     offer.discountType = discountType || offer.discountType;

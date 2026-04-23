@@ -20,12 +20,6 @@ import { getSuperAdminDashboardStats } from "../controllers/superAdminController
 
 const router = Router();
 
-// offer management
-// router.post("/offers", authenticate, isSuperAdmin, createOffer);
-// router.delete("/offers/:offerId", authenticate, isSuperAdmin, deleteOffer);
-// router.put("/offers/:offerId", authenticate, isSuperAdmin, updateOffer);
-// router.get("/offers", authenticate, getAllOffers);
-
 // Subscription Plan Management
 router.get('/subscription-plans', authenticate, isSuperAdmin, getSubscriptionPlans);
 router.post('/subscription-plans', authenticate, isSuperAdmin, createSubscriptionPlan);

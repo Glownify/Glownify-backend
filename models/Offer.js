@@ -13,6 +13,8 @@ const offerSchema = new mongoose.Schema({
   code: { type: String, required: true, unique: true }, // e.g., "FIRST50"
   validUntil: { type: Date, required: true }, // e.g., 2025-10-31
   category: { type: String }, // e.g., "Bridal package", "Weekend Special"
+  providerType: { type: String, enum: ["Salon", "IndependentProfessional"], required: true },
+  providerId: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "providerType" },
 }, { timestamps: true });
 
 export default mongoose.model("Offer", offerSchema);
