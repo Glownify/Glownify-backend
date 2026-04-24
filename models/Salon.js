@@ -29,7 +29,6 @@ const salonSchema = new mongoose.Schema(
     },
 
     offersHomeService: { type: Boolean, default: false },
-    numberOfStaff: Number,
     openingDate: Date,
 
     openingHours: [

@@ -1155,7 +1155,7 @@ export const getSalonProfileDashboard = async (req, res) => {
 export const getMySalon = async (req, res) => {
   try {
     const salon = await Salon.findOne({ owner: req.user._id }).select(
-      "-governmentId -subscription -onboardedBy -referredBy -verifiedByAdmin"
+      "-onboardedBy -referredBy"
     );
 
     if (!salon) {
@@ -1179,7 +1179,7 @@ export const updateMySalon = async (req, res) => {
 
     const {
       shopName, about, contactNumber, whatsappNumber,
-      targetGender, offersHomeService, numberOfStaff,
+      targetGender, offersHomeService,
       openingDate, openingHours, partners,
       location,
     } = req.body;
@@ -1191,7 +1191,6 @@ export const updateMySalon = async (req, res) => {
     if (whatsappNumber) updateData.whatsappNumber = whatsappNumber;
     if (targetGender && ["men", "women", "unisex"].includes(targetGender)) updateData.targetGender = targetGender;
     if (offersHomeService !== undefined) updateData.offersHomeService = offersHomeService;
-    if (numberOfStaff !== undefined) updateData.numberOfStaff = numberOfStaff;
     if (openingDate) updateData.openingDate = openingDate;
     if (openingHours) updateData.openingHours = openingHours;
     if (partners && salon.shopType === "partnership") updateData.partners = partners;
@@ -1215,7 +1214,7 @@ export const updateMySalon = async (req, res) => {
     }
 
     const updatedSalon = await Salon.findByIdAndUpdate(salon._id, updateData, { new: true }).select(
-      "-governmentId -subscription -onboardedBy -referredBy -verifiedByAdmin"
+      " -onboardedBy -referredBy"
     );
 
     res.status(200).json({ success: true, message: "Salon updated successfully", salon: updatedSalon });
