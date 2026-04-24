@@ -2,10 +2,11 @@ import express from "express";
 import { getSalonByID } from "../controllers/salonController.js";
 import { getSalonServices } from "../controllers/salonController.js";
 import { authenticate, isSuperAdmin, isSalonOwner, authorizeRoles } from "../middlewares/authMiddleware.js";
-import { getAllSalons, getUnverifiedSalons, verifySalonByAdmin, getFeaturedSalons } from "../controllers/salonController.js";
+import { getAllSalons, getUnverifiedSalons, verifySalonByAdmin, getFeaturedSalons, getMySalon, updateMySalon } from "../controllers/salonController.js";
 import { getNearbySalons } from "../controllers/salonController.js";
 import { getSalonOwnerDashboard } from "../controllers/dashboardController.js";
 import { getSalonProfileDashboard } from "../controllers/salonController.js";
+import uploadMiddleware from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -16,6 +17,16 @@ const router = express.Router();
 // router.get("/home", getHomeSalonsByCategory);
 
 // router.get("/category/:categoryId", getAllSalonsByCategory);
+
+
+
+// SALON OWNER - MY SALON
+router.get("/my-salon", authenticate, authorizeRoles("salon_owner"), getMySalon);
+router.put("/my-salon", authenticate, authorizeRoles("salon_owner"), uploadMiddleware.fields([
+    { name: "logoImage", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 },
+    { name: "galleryImages", maxCount: 10 },
+]), updateMySalon);
 
 //PUBLIC ROUTES
 router.get("/nearby", getNearbySalons);
