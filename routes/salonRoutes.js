@@ -28,6 +28,7 @@ router.put("/my-salon", authenticate, authorizeRoles("salon_owner"), uploadMiddl
     { name: "galleryImages", maxCount: 10 },
 ]), updateMySalon);
 
+
 //PUBLIC ROUTES
 router.get("/nearby", getNearbySalons);
 

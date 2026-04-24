@@ -1168,6 +1168,7 @@ export const getMySalon = async (req, res) => {
   }
 };
 
+
 // New code for update my salon (for salon owner) with optimized query, validation and image upload handling.
 export const updateMySalon = async (req, res) => {
   try {
