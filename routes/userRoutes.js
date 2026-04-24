@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { authenticate, isSuperAdmin } from '../middlewares/authMiddleware.js';
-import { verifyUser, blockUser, activateUser, getAllUsers } from '../controllers/userController.js';
+import { verifyUser, blockUser, activateUser, getAllUsers, getMyProfile, updateMyProfile } from '../controllers/userController.js';
+import uploadMiddleware from '../middlewares/uploadMiddleware.js';
 
 const router = Router();
+
+// USER PROFILE
+router.get("/me", authenticate, getMyProfile);
+router.put("/me", authenticate, uploadMiddleware.fields([{ name: "profilePhoto", maxCount: 1 }]), updateMyProfile);
 
 // SUPER ADMIN PROTECTED
 router.get("/", authenticate, isSuperAdmin, getAllUsers);
