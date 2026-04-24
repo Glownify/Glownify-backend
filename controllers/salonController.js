@@ -4,6 +4,7 @@ import ServiceItem from "../models/ServiceItem.js";
 import Review from "../models/Review.js";
 import {geoNearStage} from "../utils/geoPipeline.js";
 import mongoose from "mongoose";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 
 // get nearby salons final code with all features and optimizations. 
@@ -955,6 +956,7 @@ export const getSalonDetails = async (req, res) => {
 };
 
 
+
 export const getUnverifiedSalons = async (req, res) => {
   try {
     const salons = await Salon.find({ verifiedByAdmin: false })
@@ -994,7 +996,7 @@ export const verifySalonByAdmin = async (req, res) => {
 
 
 // Code For get Salon Profile + Dashboard data (salon view)
-
+import Specialist from "../models/Specialist.js";
 // 🔥 Helper: check salon open or not
 const isSalonOpenNow = (openingHours) => {
   const now = new Date();
@@ -1149,45 +1151,75 @@ export const getSalonProfileDashboard = async (req, res) => {
 
 
 
-// // controllers/serviceController.js
-// const ServiceItem = require("../models/ServiceItem"); // Aapka Service model
+// New code for get my salon (for salon owner) with optimized query and without unnecessary population.
+export const getMySalon = async (req, res) => {
+  try {
+    const salon = await Salon.findOne({ owner: req.user._id }).select(
+      "-governmentId -subscription -onboardedBy -referredBy -verifiedByAdmin"
+    );
 
-// const getServiceItemsByCategory = async (req, res) => {
-//     try {
-//         const { salonId, categoryId } = req.params;
+    if (!salon) {
+      return res.status(404).json({ success: false, message: "Salon not found" });
+    }
 
-//         // Salon aur Category ke basis par services dhundhna
-//         const services = await ServiceItem.find({ 
-//             salon: salonId, 
-//             category: categoryId 
-//         });
-
-//         if (!services) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "No services found for this category"
-//             });
-//         }
-
-//         // Frontend 'data.services' expect kar raha hai
-//         res.status(200).json({
-//             success: true,
-//             services: services 
-//         });
-
-//     } catch (error) {
-//         console.error("Error in getServiceItemsByCategory:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error"
-//         });
-//     }
-// };
-
-// module.exports = { getServiceItemsByCategory };
+    res.status(200).json({ success: true, salon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
 
 
+// New code for update my salon (for salon owner) with optimized query, validation and image upload handling.
+export const updateMySalon = async (req, res) => {
+  try {
+    const salon = await Salon.findOne({ owner: req.user._id });
+    if (!salon) {
+      return res.status(404).json({ success: false, message: "Salon not found" });
+    }
 
+    const {
+      shopName, about, contactNumber, whatsappNumber,
+      targetGender, offersHomeService, numberOfStaff,
+      openingDate, openingHours, partners,
+      location,
+    } = req.body;
 
+    const updateData = {};
+    if (shopName) updateData.shopName = shopName;
+    if (about !== undefined) updateData.about = about;
+    if (contactNumber) updateData.contactNumber = contactNumber;
+    if (whatsappNumber) updateData.whatsappNumber = whatsappNumber;
+    if (targetGender && ["men", "women", "unisex"].includes(targetGender)) updateData.targetGender = targetGender;
+    if (offersHomeService !== undefined) updateData.offersHomeService = offersHomeService;
+    if (numberOfStaff !== undefined) updateData.numberOfStaff = numberOfStaff;
+    if (openingDate) updateData.openingDate = openingDate;
+    if (openingHours) updateData.openingHours = openingHours;
+    if (partners && salon.shopType === "partnership") updateData.partners = partners;
+    if (location) updateData.location = { ...salon.location.toObject(), ...location };
 
-// router.get("/get-serviceItems-by-category/:salonId/:categoryId", getServiceItemsByCategory);
+    // Handle image uploads
+    if (req.files?.logoImage?.length > 0) {
+      const uploaded = await uploadToCloudinary(req.files.logoImage, "glownify/salon_logo");
+      updateData.logoUrl = uploaded[0].secure_url;
+    }
+    if (req.files?.coverImage?.length > 0) {
+      const uploaded = await uploadToCloudinary(req.files.coverImage, "glownify/salon_cover");
+      updateData.coverImageUrl = uploaded[0].secure_url;
+    }
+    if (req.files?.galleryImages?.length > 0) {
+      const uploaded = await uploadToCloudinary(req.files.galleryImages, "glownify/salon_gallery");
+      updateData.galleryImages = [
+        ...salon.galleryImages,
+        ...uploaded.map(img => img.secure_url),
+      ];
+    }
+
+    const updatedSalon = await Salon.findByIdAndUpdate(salon._id, updateData, { new: true }).select(
+      "-governmentId -subscription -onboardedBy -referredBy -verifiedByAdmin"
+    );
+
+    res.status(200).json({ success: true, message: "Salon updated successfully", salon: updatedSalon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};

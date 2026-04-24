@@ -263,7 +263,7 @@ export const getBookingsByProvider = async (req, res) => {
       filter.status = status;
     }
 
-    // 🔥 NEW bookingType filter
+    // NEW bookingType filter
     if (bookingType) {
       filter.bookingType = bookingType;
     }

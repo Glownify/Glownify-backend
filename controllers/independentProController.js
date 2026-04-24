@@ -138,7 +138,7 @@ export const getHomeIndependentPros = async (req, res) => {
           from: "users",
           localField: "user",
           foreignField: "_id",
-          pipeline: [{ $project: { name: 1, gender: 1 } }],
+          pipeline: [{ $project: { name: 1, gender: 1, profilePhoto: 1 } }],
           as: "user",
         },
       },
@@ -189,7 +189,6 @@ export const getHomeIndependentPros = async (req, res) => {
 
       {
         $project: {
-          profilePhoto: 1,
           experienceYears: 1,
           targetGender: 1,
           availabilityStatus: 1,
@@ -199,6 +198,7 @@ export const getHomeIndependentPros = async (req, res) => {
           "user._id": 1,
           "user.name": 1,
           "user.gender": 1,
+          "user.profilePhoto": 1,
 
           "specializations._id": 1,
           "specializations.name": 1,

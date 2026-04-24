@@ -4,6 +4,7 @@ import ServiceItem from "../models/ServiceItem.js";
 import ServiceCategory from "../models/ServiceCategory.js";
 import Review from "../models/Review.js"; // Use for virtual populate dont remove
 import Specialist from "../models/Specialist.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -178,11 +179,64 @@ export const giveReview = async (req, res) => {
   }
 };
 
-// const getLocationFromCoordinates = (req, res) => {
-//   const { latitude, longitude } = req.body;
+export const getMyProfile = async (req, res) => {
+  try {
+    const  userId  = req.user._id;
 
-//   // This is a placeholder function. In a real application, you would use a geocoding service.
-//   if (!latitude || !longitude) {
-//     return res.status(400).json({ message: "Latitude and Longitude are required" });
-//   }
+    const user = await User.findById(userId).select("-isVerified");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User is not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, email, whatsapp, gender } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: "Email already in use" });
+      }
+      updateData.email = email;
+      updateData.isEmailVerified = false;
+    }
+    if (whatsapp) updateData.whatsapp = whatsapp;
+    if (gender && ["male", "female", "other"].includes(gender)) updateData.gender = gender;
+    
+    // Handle profile photo upload
+    if (req.files?.profilePhoto?.length > 0) {
+      const uploaded = await uploadToCloudinary(req.files.profilePhoto, "glownify/profile_photos");
+      updateData.profilePhoto = uploaded[0].secure_url;
+    }
+
+    const user = await User.findByIdAndUpdate(userId, updateData, { new: true }).select("-isVerified");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+
 

@@ -12,6 +12,7 @@ import ServiceCategory from "../models/ServiceCategory.js";
 import { generateOTP } from "../utils/otp.js";
 import { sendEmail } from "../utils/email.js";
 import { hashString } from "../utils/hash.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 const router = express.Router();
 
@@ -32,13 +33,13 @@ export const signup = async (req, res) => {
   console.log("Signup request body:", req.body);
 
   try {
-    const { name, email, phone, password, role, salonData, independentData } = req.body;
+    const { name, email, phone, password, gender, role, salonData, independentData } = req.body;
 
     // -----------------------
     // Basic validations
     // -----------------------
-    if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: "Name, email, phone, and password are required" });
+    if (!name || !email || !phone || !password || !gender) {
+      return res.status(400).json({ message: "Name, email, phone, password, and gender are required" });
     }
 
     if (await User.findOne({ email })) {
@@ -148,6 +149,7 @@ export const signup = async (req, res) => {
       email,
       phone,
       password,
+      gender,
       role,
     });
 
@@ -202,37 +204,73 @@ export const signupSalonOwner = async (req, res) => {
       email,
       phone,
       password,
+      gender,
       whatsappNumber,
       role,
       salonData,
     } = req.body;
 
-    if (!name || !email || !phone || !password || role !== "salon_owner") {
+    if (!name || !email || !phone || !password || !gender || role !== "salon_owner") {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({ message: "Required fields missing" });
     }
 
-    const {
+    let salonDataParsed = salonData;
+    if (typeof salonData === "string") {
+      try {
+        salonDataParsed = JSON.parse(salonData);
+      } catch (parseError) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Invalid salonData JSON" });
+      }
+    }
+
+    if (!salonDataParsed || typeof salonDataParsed !== "object") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Salon data is required" });
+    }
+
+    let {
       shopType,
       shopName,
-      salonCategory,
+      targetGender,
       location,
       city,
       governmentId,
-      galleryImages,
       partners,
       openingHours,
-      offersHomeService
-    } = salonData;
+      offersHomeService,
+    } = salonDataParsed;
+
+    if (!governmentId || typeof governmentId !== "object") {
+      governmentId = {};
+    }
+
+    // Upload government ID image if provided as multipart file
+    if (req.files?.governmentIdImage?.length > 0) {
+      try {
+        const uploadedGovId = await uploadToCloudinary(req.files.governmentIdImage, "glownify/government_id");
+        governmentId.idImageUrl = uploadedGovId[0]?.secure_url;
+      } catch (uploadError) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Government ID upload failed:", uploadError);
+        return res.status(400).json({
+          message: "Failed to upload government ID image",
+          error: uploadError.message,
+        });
+      }
+    }
 
     if (
       !shopType ||
       !shopName ||
-      !salonCategory ||
+      !targetGender ||
       !location?.coordinates ||
       !location?.address ||
-      !city ||
       !governmentId?.idType ||
       !governmentId?.idNumber ||
       !governmentId?.idImageUrl
@@ -258,6 +296,29 @@ export const signupSalonOwner = async (req, res) => {
     }
 
     // ===============================
+    // UPLOAD GALLERY IMAGES TO CLOUDINARY
+    // ===============================
+    let galleryImages = [];
+    if (req.files?.galleryImages?.length > 0) {
+      try {
+        console.log(`Uploading ${req.files.galleryImages.length} gallery images to Cloudinary...`);
+        const uploadedImages = await uploadToCloudinary(req.files.galleryImages, "glownify/salon_gallery");
+        galleryImages = uploadedImages.map(img => img.secure_url);
+        console.log("Gallery images uploaded successfully:", galleryImages);
+      } catch (uploadError) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Image upload failed:", uploadError);
+        return res.status(400).json({
+          message: "Failed to upload gallery images",
+          error: uploadError.message
+        });
+      }
+    } else if (Array.isArray(salonDataParsed.galleryImages)) {
+      galleryImages = salonDataParsed.galleryImages;
+    }
+
+    // ===============================
     // CREATE USER (INSIDE SESSION)
     // ===============================
     const user = await User.create(
@@ -267,6 +328,7 @@ export const signupSalonOwner = async (req, res) => {
           email,
           phone,
           password,
+          gender,
           whatsappNumber,
           role,
         },
@@ -284,7 +346,7 @@ export const signupSalonOwner = async (req, res) => {
           shopType,
           partners: shopType === "partnership" ? partners : [],
           shopName,
-          salonCategory,
+          targetGender,
           contactNumber: phone,
           whatsappNumber: whatsappNumber || "",
           openingHours: openingHours || [],
@@ -298,7 +360,7 @@ export const signupSalonOwner = async (req, res) => {
             state: location.state,
             pincode: location.pincode,
           },
-          galleryImages: galleryImages || [],
+          galleryImages: galleryImages,
           governmentId,
         },
       ],
@@ -339,20 +401,47 @@ export const signupIndependentPro = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, email, phone, password, role, independentData } = req.body;
+    const { name, email, phone, password, gender, role, independentData } = req.body;
+
+    // console.log("Received body:", {
+    //   name: !!name,
+    //   email: !!email,
+    //   phone: !!phone,
+    //   password: !!password,
+    //   gender: !!gender,
+    //   role: !!role,
+    //   independentData: !!independentData,
+    // });
 
     // ===============================
     // BASIC VALIDATION
     // ===============================
-    if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: "Required fields missing" });
+    if (!name || !email || !phone || !password || !gender) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: "Required fields missing",
+        received: { name: !!name, email: !!email, phone: !!phone, password: !!password, gender: !!gender },
+      });
+    }
+
+    if (!["male", "female", "other"].includes(gender)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: "Invalid gender. Must be 'male', 'female', or 'other'",
+      });
     }
 
     if (role !== "independent_pro") {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Invalid role" });
     }
 
     if (!independentData) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Independent data required" });
     }
 
@@ -364,46 +453,136 @@ export const signupIndependentPro = async (req, res) => {
       User.findOne({ phone }),
     ]);
 
-    if (existingEmail)
+    if (existingEmail) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Email already exists" });
+    }
 
-    if (existingPhone)
+    if (existingPhone) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Phone already exists" });
+    }
 
-    const {
-      gender,
+    let independentDataParsed = independentData;
+    if (typeof independentData === "string") {
+      try {
+        independentDataParsed = JSON.parse(independentData);
+      } catch (parseError) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Invalid independentData JSON" });
+      }
+    }
+
+    if (!independentDataParsed || typeof independentDataParsed !== "object") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Independent data is required" });
+    }
+
+    let {
       experienceYears,
       specializations,
-      serviceTypes,
+      targetGender,
       availability,
       governmentId,
       location,
-      profilePhoto,
-      workPhotos,
-    } = independentData;
+    } = independentDataParsed;
+
+    if (!governmentId || typeof governmentId !== "object") {
+      governmentId = {};
+    }
+
+    // Upload government ID image if provided as multipart file
+    if (req.files?.governmentIdImage?.length > 0) {
+      try {
+        const uploadedGovId = await uploadToCloudinary(req.files.governmentIdImage, "glownify/government_id");
+        governmentId.idImageUrl = uploadedGovId[0]?.secure_url;
+      } catch (uploadError) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Government ID upload failed:", uploadError);
+        return res.status(400).json({
+          message: "Failed to upload government ID image",
+          error: uploadError.message,
+        });
+      }
+    }
+
+    // Upload work photos if provided as multipart files
+    let workPhotosUrls = [];
+    if (req.files?.workPhotos?.length > 0) {
+      try {
+        const uploadedPhotos = await uploadToCloudinary(req.files.workPhotos, "glownify/work_photos");
+        workPhotosUrls = uploadedPhotos.map((photo) => photo.secure_url);
+      } catch (uploadError) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Work photos upload failed:", uploadError);
+        return res.status(400).json({
+          message: "Failed to upload work photos",
+          error: uploadError.message,
+        });
+      }
+    }
+
+    // Upload profile photo if provided as multipart file
+    let profilePhotoUrl = null;
+    if (req.files?.profilePhoto?.length > 0) {
+      try {
+        const uploadedProfilePhoto = await uploadToCloudinary(req.files.profilePhoto, "glownify/profile_photos");
+        profilePhotoUrl = uploadedProfilePhoto[0]?.secure_url;
+      } catch (uploadError) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Profile photo upload failed:", uploadError);
+        return res.status(400).json({
+          message: "Failed to upload profile photo",
+          error: uploadError.message,
+        });
+      }
+    }
 
     // ===============================
     // REQUIRED FIELD VALIDATION
     // ===============================
-    if (!gender || experienceYears === undefined) {
+    if (!profilePhotoUrl) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
-        message: "Gender and experienceYears required",
+        message: "Profile photo is required",
+      });
+    }
+
+    if (experienceYears === undefined) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: "Experience years required",
       });
     }
 
     if (!Array.isArray(specializations) || specializations.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "At least one specialization required",
       });
     }
 
-    if (!Array.isArray(serviceTypes) || serviceTypes.length === 0) {
+    if (!targetGender || !["men", "women", "unisex"].includes(targetGender)) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
-        message: "At least one service type required",
+        message: "Valid targetGender required (men, women, or unisex)",
       });
     }
 
     if (!Array.isArray(availability) || availability.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "Availability required",
       });
@@ -414,6 +593,8 @@ export const signupIndependentPro = async (req, res) => {
       !governmentId?.idNumber ||
       !governmentId?.idImageUrl
     ) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "Government ID required",
       });
@@ -424,6 +605,8 @@ export const signupIndependentPro = async (req, res) => {
       !Array.isArray(location.coordinates) ||
       location.coordinates.length !== 2
     ) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "Valid location coordinates required",
       });
@@ -437,6 +620,8 @@ export const signupIndependentPro = async (req, res) => {
     );
 
     if (!validObjectIds) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "Invalid category ID format",
       });
@@ -447,6 +632,8 @@ export const signupIndependentPro = async (req, res) => {
     });
 
     if (categories.length !== specializations.length) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         message: "One or more categories not found",
       });
@@ -463,7 +650,9 @@ export const signupIndependentPro = async (req, res) => {
           email,
           phone,
           password,
+          gender,
           role,
+          profilePhoto: profilePhotoUrl,
         },
       ],
       { session }
@@ -476,12 +665,10 @@ export const signupIndependentPro = async (req, res) => {
       [
         {
           user: user._id,
-          gender,
           experienceYears,
           specializations,
-          serviceTypes,
-          profilePhoto,
-          workPhotos: workPhotos || [],
+          targetGender,
+          workPhotos: workPhotosUrls,
           availability,
           governmentId,
           location: {
