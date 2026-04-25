@@ -1181,7 +1181,7 @@ export const updateMySalon = async (req, res) => {
       shopName, about, contactNumber, whatsappNumber,
       targetGender, offersHomeService,
       openingDate, openingHours, partners,
-      location,
+      location, deleteGalleryImages,
     } = req.body;
 
     const updateData = {};
@@ -1196,25 +1196,40 @@ export const updateMySalon = async (req, res) => {
     if (partners && salon.shopType === "partnership") updateData.partners = partners;
     if (location) updateData.location = { ...salon.location.toObject(), ...location };
 
-    // Handle image uploads
+    // Handle logo upload
     if (req.files?.logoImage?.length > 0) {
       const uploaded = await uploadToCloudinary(req.files.logoImage, "glownify/salon_logo");
       updateData.logoUrl = uploaded[0].secure_url;
     }
+
+    // Handle cover upload
     if (req.files?.coverImage?.length > 0) {
       const uploaded = await uploadToCloudinary(req.files.coverImage, "glownify/salon_cover");
       updateData.coverImageUrl = uploaded[0].secure_url;
     }
+
+    // Handle gallery - selective delete + selective add
+    let currentGallery = [...salon.galleryImages];
+
+    // Selective delete - frontend se URLs bhejo jo delete karni hain
+    if (deleteGalleryImages) {
+      const toDelete = Array.isArray(deleteGalleryImages) ? deleteGalleryImages : [deleteGalleryImages];
+      currentGallery = currentGallery.filter(url => !toDelete.includes(url));
+    }
+
+    // Selective add - naye images upload karo
     if (req.files?.galleryImages?.length > 0) {
       const uploaded = await uploadToCloudinary(req.files.galleryImages, "glownify/salon_gallery");
-      updateData.galleryImages = [
-        ...salon.galleryImages,
-        ...uploaded.map(img => img.secure_url),
-      ];
+      currentGallery = [...currentGallery, ...uploaded.map(img => img.secure_url)];
+    }
+
+    // Only update gallery if something changed
+    if (deleteGalleryImages || req.files?.galleryImages?.length > 0) {
+      updateData.galleryImages = currentGallery;
     }
 
     const updatedSalon = await Salon.findByIdAndUpdate(salon._id, updateData, { new: true }).select(
-      " -onboardedBy -referredBy"
+      "-onboardedBy -referredBy"
     );
 
     res.status(200).json({ success: true, message: "Salon updated successfully", salon: updatedSalon });
