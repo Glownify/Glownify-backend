@@ -201,18 +201,10 @@ export const getMyProfile = async (req, res) => {
 export const updateMyProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { name, email, whatsapp, gender } = req.body;
+    const { name, whatsapp, gender } = req.body;
 
     const updateData = {};
     if (name) updateData.name = name;
-    if (email) {
-      const existingUser = await User.findOne({ email, _id: { $ne: userId } });
-      if (existingUser) {
-        return res.status(400).json({ success: false, message: "Email already in use" });
-      }
-      updateData.email = email;
-      updateData.isEmailVerified = false;
-    }
     if (whatsapp) updateData.whatsapp = whatsapp;
     if (gender && ["male", "female", "other"].includes(gender)) updateData.gender = gender;
     
